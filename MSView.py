@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Autchor: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 29-JAN-2025
+# Date last modified: 02-FEB-2025
 
 # Import needed libraries
 import pandas as pd
@@ -15,8 +15,7 @@ class MSViewer:
     
     Attributes
     ----------
-    filename : str
-        The relative path to the CSV file containing seismic event data.
+    None.
         
     Methods
     -------
@@ -24,18 +23,21 @@ class MSViewer:
         Loads and parses the data from the file specified by the filename attribute, 
         returning a Pandas DataFrame with structured data.
     
-    create_plot(data):
+    create_plot():
        Creates 3D interactive plotly visual of the entered data.
-
     """
 
-    def __init__(self):
+    def load_and_parse(self, filename):
         """
-        Initializes the MSViewer with the specified file name.
+        Load and parse the dataset given by the 'filename' attribute of MSViewer.
         
+        Reads the data from the CSV file by its relative path, processes it by renaming columns, 
+        converting columns to appropriate datatypes, and combining time columns.
+        Returns a Pandas DataFrame with the cleaned data.
+
         Parameters
         ----------
-        filename : str
+         filename : str
             The relative path to the CSV file containing the fiber optic sensing data. 
 
             This data set must contain the following column names in order to be compatible:
@@ -48,20 +50,6 @@ class MSViewer:
             - Origin Time - Millisecond (UTC): Origin time millisecond count which adds to the Origin Time - Time (UTC) value.
             - Brune Magnitude: Brune magnitude of event entered as a negative decimal value.
             - Stage: Stage of event entered as an integer value.
-        """
-        self.filename = None
-
-    def load_and_parse(self, filename):
-        """
-        Load and parse the dataset given by the 'filename' attribute of MSViewer.
-        
-        Reads the data from the CSV file by its relative path, processes it by renaming columns, 
-        converting columns to appropriate datatypes, and combining time columns. 
-        Returns a Pandas DataFrame with the cleaned data.
-
-        Parameters
-        ----------
-        None.
 
         Returns
         -------
@@ -71,22 +59,15 @@ class MSViewer:
             - Easting (ft): The Easting coordinate of the event in feet.
             - Northing (ft): The Northing coordinate of the event in feet.
             - Depth TVDSS (ft): The depth of the event in feet.
-            - Origin Time - Date (UTC) - MM/DD/YYYY: The date of origin in UTC in MM/DD/YYYY format.
-            - Origin Time - Time (UTC) - HH:MM:ss: The time of origin in UTC in HH:MM:ss format.
-            - Origin DateTime: A combined datetime column of the origin time in UTC, including milliseconds.
+            - Origin Time - Date (UTC) - MM/DD/YYYY: The date of origin in UTC in MM/DD/YYYY format (str).
+            - Origin Time - Time (UTC) - HH:MM:ss: The time of origin in UTC in HH:MM:ss format (str).
+            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss format (str).
             - Brune Magnitude: The Brune magnitude of the event (float).
             - Stage: The stage identifier (int).
 
         Exceptions:
         --------
         FileNotFoundError: Raised if the file specified by self.filename does not exist.
-
-        Example:
-        --------
-        >>> viewer = ('data.csv')
-        >>> parsed_data = viewer.load_and_parse()
-        >>> print(parsed_data.head())
-
         """
        
         # Check if the file exists
@@ -134,7 +115,7 @@ class MSViewer:
         return True
     
 
-    def create_plot(self):
+    def create_plot(self, start, stop):
         """
         Creates an interactive 3D scatter plot of seismic data with a time-based animation slider.
 
@@ -145,21 +126,15 @@ class MSViewer:
 
         The plot is interactive and includes hover text displaying the file name, stage, and 
         magnitude for each seismic event. The user can navigate through the different time frames 
-        and explore how the seismic data evolves over time. Each frame only displays a single seismic event.
+        and explore how the seismic data evolves over time.
 
         Parameters:
         -----------
-        data : pandas.DataFrame
-            A Pandas DataFrame containing the following columns:
-            - File Name: The name of the event file.
-            - Easting (ft): The Easting coordinate of the event in feet.
-            - Northing (ft): The Northing coordinate of the event in feet.
-            - Depth TVDSS (ft): The depth of the event in feet.
-            - Origin Time - Date (UTC) - MM/DD/YYYY: The date of origin in UTC in MM/DD/YYYY format.
-            - Origin Time - Time (UTC) - HH:MM:ss: The time of origin in UTC in HH:MM:ss format.
-            - Origin DateTime: A combined datetime column of the origin time in UTC, including milliseconds.
-            - Brune Magnitude: The Brune magnitude of the event (float).
-            - Stage: The stage identifier (int).
+        start : str
+            The start date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
+
+        stop : str
+            The stop date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
 
         Returns:
         --------
@@ -175,6 +150,7 @@ class MSViewer:
         each point is proportional to the absolute magnitude.
         - The function uses Plotly for rendering the plot and requires the `plotly` and `pandas` libraries.
             """
+        
         data = self.data
 
         # Take the first 100 entries
@@ -183,39 +159,42 @@ class MSViewer:
         # Ensure DateTime values are in chronological order
         df_100 = df_100.sort_values(by='Origin DateTime')
 
+        # Filter data based on the start and stop times
+        df_filtered = df_100[(df_100['Origin DateTime'] >= start) & (df_100['Origin DateTime'] <= stop)]
+
         # Create a list of unique times for the slider
-        times = df_100['Origin DateTime'].unique()
+        times = df_filtered['Origin DateTime'].unique()
 
         # Individual frames for each seismic entry
 
         # Create the initial 3D scatter plot with only first frame
-        fig2 = go.Figure(data=go.Scatter3d(
-            x=df_100['Easting (ft)'],  #X-axis: Easting
-            y=df_100['Northing (ft)'],  #Y-axis: Northing
-            z=df_100['Depth TVDSS (ft)'],  #Z-axis: Depth
-            text=df_100.apply(lambda row: f"File: {row['File Name']}<br>Stage: {row['Stage']}<br>Magnitude: {row['Brune Magnitude']:.2f}", axis=1),  #Hover text: File Name, Stage, Brune Magnitude
+        fig = go.Figure(data=go.Scatter3d(
+            x=df_filtered['Easting (ft)'],  #X-axis: Easting
+            y=df_filtered['Northing (ft)'],  #Y-axis: Northing
+            z=df_filtered['Depth TVDSS (ft)'],  #Z-axis: Depth
+            text=df_filtered.apply(lambda row: f"File: {row['File Name']}<br>Stage: {row['Stage']}<br>Magnitude: {row['Brune Magnitude']:.2f}", axis=1),  #Hover text: File Name, Stage, Brune Magnitude
             mode='markers',
             marker=dict(
                 sizemode='diameter',  #Set the size mode to diameter
                 sizeref=25,  #Adjust the size scaling factor
-                size=abs(df_100['Brune Magnitude']) * 100,  #Size by Brune Magnitude (scaled)
-                color=df_100['Brune Magnitude'],  #Set color based on Brune Magnitude
+                size=abs(df_filtered['Brune Magnitude']) * 100,  #Size by Brune Magnitude (scaled)
+                color=df_filtered['Brune Magnitude'],  #Set color based on Brune Magnitude
                 colorscale='Viridis',  #Color scale from Brune Magnitude
                 colorbar=dict(title='Brune Magnitude'),  #Color bar title
             )
         ))
 
         # Create frames for each unique time
-        frames2 = []
+        frames = []
         for time in times:
-            frame_data = df_100[df_100['Origin DateTime'] == time]
+            frame_data = df_filtered[df_filtered['Origin DateTime'] <= time]
             
             frame = go.Frame(
                 data=[go.Scatter3d(
                     x=frame_data['Easting (ft)'],
                     y=frame_data['Northing (ft)'],
                     z=frame_data['Depth TVDSS (ft)'],
-                    text=df_100.apply(lambda row: f"File: {row['File Name']}<br>Magnitude: {row['Brune Magnitude']:.2f}", axis=1),
+                    text=df_filtered.apply(lambda row: f"File: {row['File Name']}<br>Magnitude: {row['Brune Magnitude']:.2f}", axis=1),
                     mode='markers',
                     marker=dict(
                         sizemode='diameter',
@@ -223,19 +202,19 @@ class MSViewer:
                         size=abs(frame_data['Brune Magnitude']) * 100,
                         color=frame_data['Brune Magnitude'],
                         colorscale='Viridis',  #Keep the color scale the same for each frame
-                        cmin=df_100['Brune Magnitude'].min(),  #Set min
-                        cmax=df_100['Brune Magnitude'].max(),  #Set max
+                        cmin=df_filtered['Brune Magnitude'].min(),  #Set min
+                        cmax=df_filtered['Brune Magnitude'].max(),  #Set max
                     )
                 )],
                 name=str(time)
             )
-            frames2.append(frame)
+            frames.append(frame)
 
         # Add frames to the figure
-        fig2.frames = frames2
+        fig.frames = frames
 
         # Create the slider
-        sliders2 = [
+        sliders = [
             {
                 'active': 0,
                 'currentvalue': {
@@ -262,9 +241,9 @@ class MSViewer:
         # Update figure layout with the slider and axis labels
 
         # Create list of each max, min value 
-        xrange2 = [df_100['Easting (ft)'].min(), df_100['Easting (ft)'].max()]
-        yrange2 = [df_100['Northing (ft)'].min(), df_100['Northing (ft)'].max()]
-        zrange2 = [df_100['Depth TVDSS (ft)'].min(), df_100['Depth TVDSS (ft)'].max()]
+        xrange2 = [df_filtered['Easting (ft)'].min(), df_filtered['Easting (ft)'].max()]
+        yrange2 = [df_filtered['Northing (ft)'].min(), df_filtered['Northing (ft)'].max()]
+        zrange2 = [df_filtered['Depth TVDSS (ft)'].min(), df_filtered['Depth TVDSS (ft)'].max()]
 
         # Create list of ranges for x, y, z
         ranges2 = [xrange2[1] - xrange2[0], yrange2[1] - yrange2[0], zrange2[1] - zrange2[0]]
@@ -273,8 +252,8 @@ class MSViewer:
         ranges2 = [x / max(ranges2) for x in ranges2]
 
 
-        fig2.update_layout(
-            title="3D Bubble Chart of Individual Seismic Entries",
+        fig.update_layout(
+            title="3D Bubble Chart of Cumulative Seismic Entries",
             scene=dict(
                 xaxis=dict(
                     title="Easting (ft)",
@@ -290,7 +269,7 @@ class MSViewer:
                 ),
                 aspectratio={'x': ranges2[0], 'y': ranges2[1], 'z': ranges2[2]}  #Set aspect ratio
             ),
-            sliders=sliders2,
+            sliders=sliders,
             updatemenus=[{
                 'buttons': [{
                     'args': [None, {'frame': {'duration': 300, 'redraw': True}, 'fromcurrent': True, 'mode': 'immediate', 'transition': {'duration': 300}}],
@@ -311,4 +290,4 @@ class MSViewer:
         )
 
         # Show the figure
-        return fig2.show()
+        return fig.show()

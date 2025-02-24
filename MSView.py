@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
-# Autchor: Kailey Dougherty
+# Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 02-FEB-2025
+# Date last modified: 23-FEB-2025
 
 # Import needed libraries
 import pandas as pd
@@ -15,31 +15,35 @@ class MSViewer:
     
     Attributes
     ----------
-    None.
-        
+    MScatalog
+    plot_start_time
+    plot_end_time
+    color_by
+    color_range
+    color_scale
+    size_by
+    size_range
+
     Methods
     -------
-    load_and_parse():
-        Loads and parses the data from the file specified by the filename attribute, 
+    load_catalog():
+        Loads and parses the data from the file specified by the MScatalog attribute, 
         returning a Pandas DataFrame with structured data.
     
     create_plot():
        Creates 3D interactive plotly visual of the entered data.
     """
 
-    def load_and_parse(self, filename):
+    def __init__(self, MScatalog, plot_start_time, plot_end_time, 
+                color_by= 'Brune Magnitude', color_scale='Viridis', 
+                size_by='Brune Magnitude', size_range=[10, 100]):
         """
-        Load and parse the dataset given by the 'filename' attribute of MSViewer.
-        
-        Reads the data from the CSV file by its relative path, processes it by renaming columns, 
-        converting columns to appropriate datatypes, and combining time columns.
-        Returns a Pandas DataFrame with the cleaned data.
+        Initialize the MSViewer with the given parameters.
 
         Parameters
         ----------
-         filename : str
-            The relative path to the CSV file containing the fiber optic sensing data. 
-
+        MScatalog : str
+            The relative path to the CSV file containing the microseismic data.
             This data set must contain the following column names in order to be compatible:
             - File Name: containing identifying name of microseismic event.
             - Easting: The Easting coordinate of the event in feet.
@@ -50,6 +54,46 @@ class MSViewer:
             - Origin Time - Millisecond (UTC): Origin time millisecond count which adds to the Origin Time - Time (UTC) value.
             - Brune Magnitude: Brune magnitude of event entered as a negative decimal value.
             - Stage: Stage of event entered as an integer value.
+        
+        plot_start_time : str
+            The start date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
+
+        plot_end_time : str
+            The stop date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
+
+        color_by : str, optional
+            The column name to color the points by (default is 'Brune Magnitude').
+
+        color_scale : str, optional
+            The color scale to use for the points (default is 'Viridis').
+
+        size_by : str, optional
+            The column name to size the points by (default is 'Brune Magnitude').
+
+        size_range : list, optional
+            The range of sizes to use for the points (default is [10, 100]).
+        """
+
+        self.MScatalog = MScatalog
+        self.plot_start_time = plot_start_time
+        self.plot_end_time = plot_end_time
+        self.color_by = color_by
+        self.color_scale = color_scale
+        self.size_by = size_by
+        self.size_range = size_range
+
+
+    def load_catalog(self):
+        """
+        Load and parse the dataset.
+        
+        Reads the data from the CSV file by its relative path, processes it by renaming columns, 
+        converting columns to appropriate datatypes, and combining time columns.
+        Returns a Pandas DataFrame with the cleaned data.
+
+        Parameters
+        ----------
+        None.
 
         Returns
         -------
@@ -67,15 +111,15 @@ class MSViewer:
 
         Exceptions:
         --------
-        FileNotFoundError: Raised if the file specified by self.filename does not exist.
+        FileNotFoundError: Raised if the file specified by self.catalog does not exist.
         """
        
         # Check if the file exists
-        if not os.path.exists(filename):
-            raise FileNotFoundError(f"File not found: {filename}")
+        if not os.path.exists(self.MScatalog):
+            raise FileNotFoundError(f"File not found: {self.MScatalog}")
 
         # Load in the file
-        needed_cols = pd.read_csv(filename,  #Specify file
+        needed_cols = pd.read_csv(self.MScatalog,  #Specify file
                  usecols=['File Name', 'Easting', 'Northing', 'Depth TVDSS', 'Origin Time - Date (UTC)', 'Origin Time - Time (UTC)', 
                           'Origin Time - Millisecond (UTC)', 'Brune Magnitude', 'Stage'],  #Specify columns
                  skiprows=[1],  #Skip units row
@@ -115,7 +159,7 @@ class MSViewer:
         return True
     
 
-    def create_plot(self, start, stop):
+    def create_plot(self):
         """
         Creates an interactive 3D scatter plot of seismic data with a time-based animation slider.
 
@@ -130,11 +174,7 @@ class MSViewer:
 
         Parameters:
         -----------
-        start : str
-            The start date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
-
-        stop : str
-            The stop date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
+        None.
 
         Returns:
         --------
@@ -146,11 +186,9 @@ class MSViewer:
         ------
         - The function currently only processes the first 100 rows of the input data (`data.iloc[:101]`), 
         which is meant for development purposes.
-        - The color scale of the points is based on the `Brune Magnitude` of the seismic events, and the size of 
-        each point is proportional to the absolute magnitude.
         - The function uses Plotly for rendering the plot and requires the `plotly` and `pandas` libraries.
             """
-        
+
         data = self.data
 
         # Take the first 100 entries
@@ -160,7 +198,7 @@ class MSViewer:
         df_100 = df_100.sort_values(by='Origin DateTime')
 
         # Filter data based on the start and stop times
-        df_filtered = df_100[(df_100['Origin DateTime'] >= start) & (df_100['Origin DateTime'] <= stop)]
+        df_filtered = df_100[(df_100['Origin DateTime'] >= self.plot_start_time) & (df_100['Origin DateTime'] <= self.plot_end_time)]
 
         # Create a list of unique times for the slider
         times = df_filtered['Origin DateTime'].unique()
@@ -177,10 +215,10 @@ class MSViewer:
             marker=dict(
                 sizemode='diameter',  #Set the size mode to diameter
                 sizeref=25,  #Adjust the size scaling factor
-                size=abs(df_filtered['Brune Magnitude']) * 100,  #Size by Brune Magnitude (scaled)
-                color=df_filtered['Brune Magnitude'],  #Set color based on Brune Magnitude
-                colorscale='Viridis',  #Color scale from Brune Magnitude
-                colorbar=dict(title='Brune Magnitude'),  #Color bar title
+                size=abs(df_filtered[self.size_by]) * 100,  #Set size
+                color=df_filtered[self.color_by],  #Set which column to color by
+                colorscale=self.color_scale,  #Set color scale
+                colorbar=dict(title=f'{self.color_by}'),  #Color bar title
             )
         ))
 

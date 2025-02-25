@@ -1,31 +1,36 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 23-FEB-2025
+# Date last modified: 24-FEB-2025
 
 # Import needed libraries
 import pandas as pd
+import numpy as np
 import os
 import plotly.graph_objects as go
 
 
-class MSViewer:
+class MSPlot:
     """
     A class for loading, parsing, and viewing microseismic events in 3D space given a CSV file.
     
     Attributes
     ----------
+    # UPDATE THIS DOCSTRING
+
     MScatalog
-    plot_start_time
-    plot_end_time
     color_by
     color_range
     color_scale
     size_by
     size_range
+    plot_start_time
+    plot_end_time
 
     Methods
     -------
+    # UPDATE THIS DOCSTRING
+
     load_catalog():
         Loads and parses the data from the file specified by the MScatalog attribute, 
         returning a Pandas DataFrame with structured data.
@@ -34,14 +39,14 @@ class MSViewer:
        Creates 3D interactive plotly visual of the entered data.
     """
 
-    def __init__(self, MScatalog, plot_start_time, plot_end_time, 
-                color_by= 'Brune Magnitude', color_scale='Viridis', 
-                size_by='Brune Magnitude', size_range=[10, 100]):
+    def __init__(self, MScatalog):
         """
         Initialize the MSViewer with the given parameters.
 
         Parameters
         ----------
+        # UPDATE THIS DOCSTRING
+
         MScatalog : str
             The relative path to the CSV file containing the microseismic data.
             This data set must contain the following column names in order to be compatible:
@@ -54,33 +59,37 @@ class MSViewer:
             - Origin Time - Millisecond (UTC): Origin time millisecond count which adds to the Origin Time - Time (UTC) value.
             - Brune Magnitude: Brune magnitude of event entered as a negative decimal value.
             - Stage: Stage of event entered as an integer value.
-        
-        plot_start_time : str
-            The start date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
-
-        plot_end_time : str
-            The stop date and time for the animation slider in YYYY-MM-DD HH:MM:ss.sss format.
-
-        color_by : str, optional
-            The column name to color the points by (default is 'Brune Magnitude').
-
-        color_scale : str, optional
-            The color scale to use for the points (default is 'Viridis').
-
-        size_by : str, optional
-            The column name to size the points by (default is 'Brune Magnitude').
-
-        size_range : list, optional
-            The range of sizes to use for the points (default is [10, 100]).
         """
 
         self.MScatalog = MScatalog
-        self.plot_start_time = plot_start_time
-        self.plot_end_time = plot_end_time
+        self.color_by = 'Stage'
+        self.color_scale = 'Viridis'
+        self.size_by = 'Brune Magnitude'
+        self.size_range = [10, 100]
+        self.plot_start_time = None
+        self.plot_end_time = None
+        self.title = '3D Bubble Chart of Cumulative Seismic Entries'
+
+    def set_colorby(self, color_by):
         self.color_by = color_by
+
+    def set_colorscale(self, color_scale):
         self.color_scale = color_scale
+
+    def set_sizeby(self, size_by):
         self.size_by = size_by
+
+    def set_sizerange(self, size_range):
         self.size_range = size_range
+
+    def set_start_time(self, plot_start_time):
+        self.plot_start_time = plot_start_time
+
+    def set_end_time(self, plot_end_time):
+        self.plot_end_time = plot_end_time
+
+    def set_title(self, title):
+        self.title = title
 
 
     def load_catalog(self):
@@ -186,7 +195,6 @@ class MSViewer:
         ------
         - The function currently only processes the first 100 rows of the input data (`data.iloc[:101]`), 
         which is meant for development purposes.
-        - The function uses Plotly for rendering the plot and requires the `plotly` and `pandas` libraries.
             """
 
         data = self.data
@@ -198,6 +206,15 @@ class MSViewer:
         df_100 = df_100.sort_values(by='Origin DateTime')
 
         # Filter data based on the start and stop times
+
+        # Check if start and end times are set
+        if self.plot_start_time is None:
+            self.plot_start_time = df_100['Origin DateTime'].min()
+        
+        if self.plot_end_time is None:
+            self.plot_end_time = df_100['Origin DateTime'].max()
+
+        # Filter dataframe
         df_filtered = df_100[(df_100['Origin DateTime'] >= self.plot_start_time) & (df_100['Origin DateTime'] <= self.plot_end_time)]
 
         # Create a list of unique times for the slider
@@ -218,6 +235,8 @@ class MSViewer:
                 size=abs(df_filtered[self.size_by]) * 100,  #Set size
                 color=df_filtered[self.color_by],  #Set which column to color by
                 colorscale=self.color_scale,  #Set color scale
+                cmin=df_filtered[self.color_by].min(),  #Set min
+                cmax=df_filtered[self.color_by].max(),  #Set max
                 colorbar=dict(title=f'{self.color_by}'),  #Color bar title
             )
         ))
@@ -291,7 +310,7 @@ class MSViewer:
 
 
         fig.update_layout(
-            title="3D Bubble Chart of Cumulative Seismic Entries",
+            title=self.title,
             scene=dict(
                 xaxis=dict(
                     title="Easting (ft)",

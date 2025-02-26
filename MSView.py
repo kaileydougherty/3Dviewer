@@ -1,16 +1,18 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 24-FEB-2025
+# Date last modified: 26-FEB-2025
 
 # Import needed libraries
 import pandas as pd
 import numpy as np
 import os
 import plotly.graph_objects as go
+from .PlotObj import PlotObj
 
 
-class MSPlot:
+class MSPlot(PlotObj):
+
     """
     A class for loading, parsing, and viewing microseismic events in 3D space given a CSV file.
     
@@ -39,7 +41,7 @@ class MSPlot:
        Creates 3D interactive plotly visual of the entered data.
     """
 
-    def __init__(self, MScatalog):
+    def __init__(self):
         """
         Initialize the MSViewer with the given parameters.
 
@@ -61,7 +63,7 @@ class MSPlot:
             - Stage: Stage of event entered as an integer value.
         """
 
-        self.MScatalog = MScatalog
+        self.MScatalog = None
         self.color_by = 'Stage'
         self.color_scale = 'Viridis'
         self.size_by = 'Brune Magnitude'
@@ -92,7 +94,7 @@ class MSPlot:
         self.title = title
 
 
-    def load_catalog(self):
+    def load_catalog(self, MScatalog):
         """
         Load and parse the dataset.
         
@@ -124,11 +126,11 @@ class MSPlot:
         """
        
         # Check if the file exists
-        if not os.path.exists(self.MScatalog):
-            raise FileNotFoundError(f"File not found: {self.MScatalog}")
+        if not os.path.exists(MScatalog):
+            raise FileNotFoundError(f"File not found: {MScatalog}")
 
         # Load in the file
-        needed_cols = pd.read_csv(self.MScatalog,  #Specify file
+        needed_cols = pd.read_csv(MScatalog,  #Specify file
                  usecols=['File Name', 'Easting', 'Northing', 'Depth TVDSS', 'Origin Time - Date (UTC)', 'Origin Time - Time (UTC)', 
                           'Origin Time - Millisecond (UTC)', 'Brune Magnitude', 'Stage'],  #Specify columns
                  skiprows=[1],  #Skip units row

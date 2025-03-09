@@ -1,44 +1,86 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 26-FEB-2025
+# Date last modified: 09-MAR-2025
 
 # Import needed libraries
 import pandas as pd
 import numpy as np
 import os
 import plotly.graph_objects as go
-from .PlotObj import PlotObj
+from PlotObj import PlotObject
 
 
-class MSPlot(PlotObj):
+class MSPlot():
 
     """
     A class for loading, parsing, and viewing microseismic events in 3D space given a CSV file.
     
     Attributes
     ----------
-    # UPDATE THIS DOCSTRING
-
-    MScatalog
-    color_by
-    color_range
-    color_scale
-    size_by
-    size_range
-    plot_start_time
-    plot_end_time
+    MScatalog : str
+        The relative path to the CSV file containing the microseismic data.
+        This data set must contain the following column names in order to be compatible:
+        - File Name: containing identifying name of microseismic event.
+        - Easting: The Easting coordinate of the event in feet.
+        - Northing: The Northing coordinate of the event in feet.
+        - Depth TVDSS: The depth of the event in feet.
+        - Origin Time - Date (UTC): Origin date in MM/DD/YYYY format.
+        - Origin Time - Time (UTC): Origin time given in HH:MM:ss format.
+        - Origin Time - Millisecond (UTC): Origin time millisecond count which adds to the Origin Time - Time (UTC) value.
+        - Brune Magnitude: Brune magnitude of event entered as a negative decimal value.
+        - Stage: Stage of event entered as an integer value.
+    
+    color_by : str
+        The attribute used to determine the color of each plot point. Default is 'Stage'.
+    
+    color_scale : str
+        The color scale used for the visualization. Default is 'Viridis'.
+    
+    size_by : str
+        The attribute used to determine the size of each plot point. Default is 'Brune Magnitude'.
+    
+    size_range : list of int
+        The range for scaling the size of the points in the plot. Default is [10, 100].
+    
+    plot_start_time : str or None
+        The start time for the plot's time range in 'YYYY-MM-DD HH:MM:SS' format. Default is None.
+    
+    plot_end_time : str or None
+        The end time for the plot's time range in 'YYYY-MM-DD HH:MM:SS' format. Default is None.
+    
+    title : str
+        The title of the plot. Default is '3D Bubble Chart of Cumulative Seismic Entries'.
 
     Methods
     -------
-    # UPDATE THIS DOCSTRING
+    create_plot(self):
+        Creates an interactive 3D scatter plot object for seismic data.
 
-    load_catalog():
-        Loads and parses the data from the file specified by the MScatalog attribute, 
-        returning a Pandas DataFrame with structured data.
+    load_csv(self, MScatalog):
+        Loads and parses the data from the file specified by the MScatalog attribute, returning a Pandas DataFrame with structured data.
     
-    create_plot():
-       Creates 3D interactive plotly visual of the entered data.
+    set_colorby(color_by):
+        Sets the attribute to be used for color encoding the plot points.
+    
+    set_colorscale(color_scale):
+        Sets the color scale for the plot.
+    
+    set_sizeby(size_by):
+        Sets the attribute to be used for determining the size of the plot points.
+    
+    set_sizerange(size_range):
+        Sets the range for scaling the size of the plot points.
+    
+    set_start_time(plot_start_time):
+        Sets the start time for the plot's time range.
+    
+    set_end_time(plot_end_time):
+        Sets the end time for the plot's time range.
+    
+    set_title(title):
+        Sets the title for the plot.
+    
     """
 
     def __init__(self):
@@ -47,8 +89,6 @@ class MSPlot(PlotObj):
 
         Parameters
         ----------
-        # UPDATE THIS DOCSTRING
-
         MScatalog : str
             The relative path to the CSV file containing the microseismic data.
             This data set must contain the following column names in order to be compatible:
@@ -61,6 +101,27 @@ class MSPlot(PlotObj):
             - Origin Time - Millisecond (UTC): Origin time millisecond count which adds to the Origin Time - Time (UTC) value.
             - Brune Magnitude: Brune magnitude of event entered as a negative decimal value.
             - Stage: Stage of event entered as an integer value.
+        
+        color_by : str, optional
+            The attribute used for color encoding. Default is 'Stage'.
+        
+        color_scale : str, optional
+            The color scale for the visualization. Default is 'Viridis'.
+        
+        size_by : str, optional
+            The attribute used for determining the size of the plot points. Default is 'Brune Magnitude'.
+        
+        size_range : list of int, optional
+            The size range for the plot points. Default is [10, 100].
+        
+        plot_start_time : str, optional
+            The start time for the plot's time range. Default is None.
+        
+        plot_end_time : str, optional
+            The end time for the plot's time range. Default is None.
+        
+        title : str, optional
+            The title for the plot. Default is '3D Bubble Chart of Cumulative Seismic Entries'.
         """
 
         self.MScatalog = None
@@ -94,7 +155,7 @@ class MSPlot(PlotObj):
         self.title = title
 
 
-    def load_catalog(self, MScatalog):
+    def load_csv(self, MScatalog):
         """
         Load and parse the dataset.
         
@@ -172,12 +233,11 @@ class MSPlot(PlotObj):
 
     def create_plot(self):
         """
-        Creates an interactive 3D scatter plot of seismic data with a time-based animation slider.
+        Creates an interactive 3D scatter plot object for seismic data.
 
-        Generates a 3D scatter plot where each point represents a seismic event,
+        Generates data for a 3D scatter plot where each point represents a seismic event,
         with `Easting (ft)`, `Northing (ft)`, and `Depth (ft)` as the coordinates. The points are colored 
-        and sized based on the `Brune Magnitude` of each event. The plot also includes an animation 
-        slider that allows the user to visualize the data at different time points (`Origin DateTime`).
+        and sized based on the `Brune Magnitude` of each event.
 
         The plot is interactive and includes hover text displaying the file name, stage, and 
         magnitude for each seismic event. The user can navigate through the different time frames 
@@ -224,8 +284,8 @@ class MSPlot(PlotObj):
 
         # Individual frames for each seismic entry
 
-        # Create the initial 3D scatter plot with only first frame
-        fig = go.Figure(data=go.Scatter3d(
+        # Create the MS Plot
+        MSplot = go.Scatter3d(
             x=df_filtered['Easting (ft)'],  #X-axis: Easting
             y=df_filtered['Northing (ft)'],  #Y-axis: Northing
             z=df_filtered['Depth TVDSS (ft)'],  #Z-axis: Depth
@@ -240,113 +300,7 @@ class MSPlot(PlotObj):
                 cmin=df_filtered[self.color_by].min(),  #Set min
                 cmax=df_filtered[self.color_by].max(),  #Set max
                 colorbar=dict(title=f'{self.color_by}'),  #Color bar title
-            )
-        ))
+            ))
 
-        # Create frames for each unique time
-        frames = []
-        for time in times:
-            frame_data = df_filtered[df_filtered['Origin DateTime'] <= time]
-            
-            frame = go.Frame(
-                data=[go.Scatter3d(
-                    x=frame_data['Easting (ft)'],
-                    y=frame_data['Northing (ft)'],
-                    z=frame_data['Depth TVDSS (ft)'],
-                    text=df_filtered.apply(lambda row: f"File: {row['File Name']}<br>Magnitude: {row['Brune Magnitude']:.2f}", axis=1),
-                    mode='markers',
-                    marker=dict(
-                        sizemode='diameter',
-                        sizeref=25,
-                        size=abs(frame_data['Brune Magnitude']) * 100,
-                        color=frame_data['Brune Magnitude'],
-                        colorscale='Viridis',  #Keep the color scale the same for each frame
-                        cmin=df_filtered['Brune Magnitude'].min(),  #Set min
-                        cmax=df_filtered['Brune Magnitude'].max(),  #Set max
-                    )
-                )],
-                name=str(time)
-            )
-            frames.append(frame)
-
-        # Add frames to the figure
-        fig.frames = frames
-
-        # Create the slider
-        sliders = [
-            {
-                'active': 0,
-                'currentvalue': {
-                    'font': {'size': 20},
-                    'visible': True,
-                    'xanchor': 'center',
-                    'prefix': 'Time: ',
-                },
-                'pad': {'b': 10},
-                'steps': [
-                    {
-                        'args': [
-                            [str(time)],
-                            {'frame': {'duration': 300, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': 300}}
-                        ],
-                        'label': str(time),
-                        'method': 'animate'
-                    } for time in times
-                ]
-            }
-        ]
-
-
-        # Update figure layout with the slider and axis labels
-
-        # Create list of each max, min value 
-        xrange2 = [df_filtered['Easting (ft)'].min(), df_filtered['Easting (ft)'].max()]
-        yrange2 = [df_filtered['Northing (ft)'].min(), df_filtered['Northing (ft)'].max()]
-        zrange2 = [df_filtered['Depth TVDSS (ft)'].min(), df_filtered['Depth TVDSS (ft)'].max()]
-
-        # Create list of ranges for x, y, z
-        ranges2 = [xrange2[1] - xrange2[0], yrange2[1] - yrange2[0], zrange2[1] - zrange2[0]]
-
-        # Normalize ranges for aspect ratio and store in new array
-        ranges2 = [x / max(ranges2) for x in ranges2]
-
-
-        fig.update_layout(
-            title=self.title,
-            scene=dict(
-                xaxis=dict(
-                    title="Easting (ft)",
-                    range=xrange2  #Set fixed range for the X-axis
-                ),
-                yaxis=dict(
-                    title="Northing (ft)",
-                    range=yrange2  #Set fixed range for the Y-axis
-                ),
-                zaxis=dict(
-                    title="Depth TVDSS (ft)",
-                    range=zrange2  #Set fixed range for the Z-axis
-                ),
-                aspectratio={'x': ranges2[0], 'y': ranges2[1], 'z': ranges2[2]}  #Set aspect ratio
-            ),
-            sliders=sliders,
-            updatemenus=[{
-                'buttons': [{
-                    'args': [None, {'frame': {'duration': 300, 'redraw': True}, 'fromcurrent': True, 'mode': 'immediate', 'transition': {'duration': 300}}],
-                    'label': 'Play',
-                    'method': 'animate'
-                }],
-                'direction': 'left',
-                'pad': {'r': 10, 't': 87},
-                'showactive': False,
-                'type': 'buttons',
-                'x': 0.1,
-                'xanchor': 'right',
-                'y': 0,
-                'yanchor': 'top'
-            }],
-            width=800,
-            height=800
-        )
-
-        # Show the figure
-        return fig.show()
+        # Return MS plot object
+        return MSplot

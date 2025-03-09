@@ -1,22 +1,26 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 24-FEB-2025
+# Date last modified: 09-MAR-2025
 
-# NOT A WORKING FILE YET
+# Import needed libraries
+import pandas as pd
+import numpy as np
+import os
+import plotly.graph_objects as go
+
 
 class DataViewer:
-	attributes:
-		plot_objects:  [obj]
-		begin_time
-		end_time
 	
-    def __init__(self, plot_objects):
+	def __init__(self, plot_objects):
+		self.plot_objects = plot_objects
 	
-	method:
-		set_time_range(bgtime, edtime):
-			for b in self.plot_objects:
-				b.set_time_range(bgtime, edtime)
-		draw()
-			for b in self.plot_objects:
-				b.plot()
+	def	draw(self):
+		fig = go.Figure()
+
+		for b in self.plot_objects:
+			fig.add_trace(b)
+	
+		fig.update_layout()
+		
+		return fig.show()

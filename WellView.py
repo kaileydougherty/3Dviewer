@@ -1,7 +1,7 @@
 # Create a plotter to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 26-FEB-2025
+# Date last modified: 12-MAR-2025
 
 # Import needed libraries
 import pandas as pd
@@ -19,7 +19,7 @@ class WellPlot():
         self.well3 = well3
         self.well4 = well4
 
-    def load_catalogs(self):
+    def load_csv(self):
         # NOTE: This is hardcoded using example files. Needs to be updated.
 
         self.well1 = pd.read_csv(self.well1, skiprows=27, skipfooter=5, usecols=['Azimuth','TVD', 'NS', 'EW'], encoding='ISO-8859-1')
@@ -40,11 +40,11 @@ class WellPlot():
         colors = ['red', 'blue', 'green', 'orange']
         dataframes = [self.well1, self.well2, self.well3, self.well4] 
 
-        fig = go.Figure()
+        well_traces = []
 
         for i, df in enumerate(dataframes):
             nxtcolor = colors[i % len(colors)]  #Cycle through colors
-            fig.add_trace(go.Scatter3d(
+            well = (go.Scatter3d(
                 x=df['EW'],
                 y=df['NS'],
                 z=df['TVD'],
@@ -54,15 +54,8 @@ class WellPlot():
                     width=3
                 ),
                 name=f'{i+1}H')) #Title each well
-                
-            fig.update_layout(
-                title="Well Paths",
-                scene=dict(
-                    xaxis_title="Easting (ft)",
-                    yaxis_title="Northing (ft)",
-                    zaxis_title="True Vertical Depth (ft)"
-                ),
-                margin=dict(l=0, r=0, b=0, t=40),
-            )
+            
+            well_traces.append(well)
 
-        fig.show()            
+        # Return the well log plot object
+        return well_traces

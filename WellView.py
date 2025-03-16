@@ -1,7 +1,7 @@
 # Create a plotter to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 12-MAR-2025
+# Date last modified: 16-MAR-2025
 
 # Import needed libraries
 import pandas as pd
@@ -9,45 +9,34 @@ import numpy as np
 import os
 import plotly.graph_objects as go
 
+
 class WellPlot():
 
-    def __init__(self, well1, well2, well3, well4):
-        # NOTE: Eventually make this a list entry of file paths for well catalogs. Needs to be updated.
+    def __init__(self):
+        self.data = None
 
-        self.well1 = well1
-        self.well2 = well2
-        self.well3 = well3
-        self.well4 = well4
+    def load_csv(self, welltraj_file):
+        # Load the well trajectory file
+        file = pd.ExcelFile(welltraj_file)
 
-    def load_csv(self):
-        # NOTE: This is hardcoded using example files. Needs to be updated.
-
-        self.well1 = pd.read_csv(self.well1, skiprows=27, skipfooter=5, usecols=['Azimuth','TVD', 'NS', 'EW'], encoding='ISO-8859-1')
-        self.well2= pd.read_csv(self.well2, skiprows=22, usecols=['Azimuth','TVD', 'NS', 'EW'],
-                        names=['Azimuth','TVD', 'NS', 'EW'], encoding='ISO-8859-1')
-        self.well3 = pd.read_csv(self.well3, skiprows=22, usecols=['Azimuth','TVD', 'NS', 'EW'],
-                        names=['Azimuth','TVD', 'NS', 'EW'], encoding='ISO-8859-1')
-        self.well4 = pd.read_csv(self.well4, skiprows=22, usecols=['Azimuth','TVD', 'NS', 'EW'],
-                        names=['Azimuth','TVD', 'NS', 'EW'], encoding='ISO-8859-1')
+        # Load each sheet within the excel file for each individual well
+        well_data = {sheet: file.parse(sheet) for sheet in file.sheet_names}
+        self.data = well_data
         
         print('Success!')
 
         return True
 
-
     def create_plot(self):
-
-        colors = ['red', 'blue', 'green', 'orange']
-        dataframes = [self.well1, self.well2, self.well3, self.well4] 
-
+        colors = ['red', 'blue', 'green', 'orange'] 
         well_traces = []
 
-        for i, df in enumerate(dataframes):
+        for i, (well, df) in enumerate(self.data.items()):
             nxtcolor = colors[i % len(colors)]  #Cycle through colors
             well = (go.Scatter3d(
-                x=df['EW'],
-                y=df['NS'],
-                z=df['TVD'],
+                x=df['Easting'],
+                y=df['Northing'],
+                z=df['True Vertical Depth'],
                 mode='lines',
                 line=dict(
                     color=nxtcolor,

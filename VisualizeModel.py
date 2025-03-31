@@ -52,8 +52,8 @@ class DataViewer:
 				)
 			),
 			legend=dict(
-				x=0.8,
-				y=0.9,
+				x=-0.5,
+				y=1.5,
 				xanchor='left',
 				yanchor='top'
 			)

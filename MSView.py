@@ -290,7 +290,9 @@ class MSPlot():
                 cmin=df_filtered[self.color_by].min(),  # Set min
                 cmax=df_filtered[self.color_by].max(),  # Set max
                 colorbar=dict(title=f'{self.color_by}'),  # Color bar title
-            ))
+            ),
+            name=f'Microseismic Events'
+        )
 
         # Return MS plot object
         return MSplot

@@ -6,10 +6,7 @@
 # Import needed libraries
 import pandas as pd
 import plotly.graph_objects as go
-from geopy.distance import geodesic
 import pyproj
-
-# NEXT TASKS: SITUATE DATA IN REF. TO MAIN WELL, CONVERT TO COMMON SPACE
 
 class WellPlot():
     def __init__(self):
@@ -29,7 +26,24 @@ class WellPlot():
     def create_plot(self):
         colors = ['red', 'blue', 'green', 'orange'] 
         well_traces = []
-            
+        
+        # Translate data to be in the same coordinate system as the microseismic data
+
+        # Reference point (latitude, longitude) for the well trajectory
+        reference_point = [31.97706, -103.70791]
+                           
+        # Coordinate systems:
+        # From:  WGS84 (lat/lon) - EPSG:4326
+        # To: NAD27 / Texas Central (ftUS) - EPSG:32039
+        proj_wgs84 = pyproj.CRS('EPSG:4326')
+        proj_spcs = pyproj.CRS('EPSG:32039')
+
+        # Create transformer
+        transformer = pyproj.Transformer.from_crs(proj_wgs84, proj_spcs, always_xy=True)
+
+        # Convert reference point to NAD27 / Texas Central (ftUS) coordinates (Easting, Northing)
+        reference_easting, reference_northing = transformer.transform(reference_point[1], reference_point[0])  # Convert to Easting, Northing
+
         # Add each trace to the well plot
         for i, (well, df) in enumerate(self.data.items()):
 
@@ -43,13 +57,17 @@ class WellPlot():
              # Invert depth for plotting
             df['Depth'] = -df['True Vertical Depth']
 
+            # Update spatial coordinates
+            df['Referenced Easting (ft)'] = reference_easting + df['Easting']
+            df['Referenced Northing (ft)'] = reference_northing + df['Northing']
+
             # Cycle through colors for each well
             nxtcolor = colors[i % len(colors)]  # Cycle through colors
             
             # Create a 3D scatter trace for the current well
             well_trace = go.Scatter3d(
-                x=df['Easting'],
-                y=df['Northing'],
+                x=df['Referenced Easting (ft)'],
+                y=df['Referenced Northing (ft)'],
                 z=df['Depth'],
                 mode='lines',
                 line=dict(

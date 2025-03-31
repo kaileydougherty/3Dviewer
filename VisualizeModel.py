@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 16-MAR-2025
+# Date last modified: 31-MAR-2025
 
 # Import needed libraries
 import pandas as pd
@@ -37,13 +37,26 @@ class DataViewer:
 
 				else:  #Otherwise, print error message
 					print(f"Invalid object: {b}")
-	
+
+		# Update layout for the 3D plot
 		fig.update_layout(
-		 	legend=dict(
-                x=0.8,
-                y=0.9,
-                xanchor='left',
-                yanchor='top'
-        ))
-		
+			scene=dict(
+				xaxis=dict(
+					title='Easting (ft)'
+				),
+				yaxis=dict(
+					title='Northing (ft)'
+				),
+				zaxis=dict(
+					title='Depth (ft)'
+				)
+			),
+			legend=dict(
+				x=0.8,
+				y=0.9,
+				xanchor='left',
+				yanchor='top'
+			)
+		)
+
 		return fig.show()

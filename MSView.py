@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 31-MAR-2025
+# Date last modified: 07-APRIL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -55,7 +55,8 @@ class MSPlot():
         Creates an interactive 3D scatter plot object for seismic data.
 
     load_csv(self, MScatalog):
-        Loads and parses the data from the file specified by the MScatalog attribute, returning a Pandas DataFrame with structured data.
+        Loads and parses the data from the file specified by the MScatalog attribute, 
+        returning a Pandas DataFrame with structured data.
 
     set_colorby(color_by):
         Sets the attribute to be used for color encoding the plot points.
@@ -172,7 +173,8 @@ class MSPlot():
             - Depth TVDSS (ft): The depth of the event in feet.
             - Origin Time - Date (UTC) - MM/DD/YYYY: The date of origin in UTC in MM/DD/YYYY format (str).
             - Origin Time - Time (UTC) - HH:MM:ss: The time of origin in UTC in HH:MM:ss format (str).
-            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss format (str).
+            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss 
+            format (str).
             - Brune Magnitude: The Brune magnitude of the event (float).
             - Stage: The stage identifier (int).
 
@@ -187,8 +189,10 @@ class MSPlot():
 
         # Load in the file
         needed_cols = pd.read_csv(MScatalog,  # Specify file
-                                  usecols=['File Name', 'Easting', 'Northing', 'Depth TVDSS', 'Origin Time - Date (UTC)', 'Origin Time - Time (UTC)',
-                                           'Origin Time - Millisecond (UTC)', 'Brune Magnitude', 'Stage'],  # Specify columns
+                                  usecols=['File Name', 'Easting', 'Northing', 'Depth TVDSS', 
+                                           'Origin Time - Date (UTC)', 'Origin Time - Time (UTC)', 
+                                           'Origin Time - Millisecond (UTC)', 
+                                           'Brune Magnitude', 'Stage'],  # Specify columns
                                   skiprows=[1],  # Skip units row
                                   dtype={'File Name': str,  # Specify datatype
                                          'Easting': float,
@@ -211,7 +215,8 @@ class MSPlot():
 
         # Convert UTC to datetime
         # Combine Origin Time - Date (UTC) - MM/DD/YYYY and Origin Time - Time (UTC) - HH:MM:ss columns
-        parsed_data['Origin DateTime'] = pd.to_datetime(parsed_data['Origin Time - Date (UTC) - MM/DD/YYYY'] + ' ' + parsed_data['Origin Time - Time (UTC) - HH:MM:ss'])
+        parsed_data['Origin DateTime'] = pd.to_datetime(parsed_data['Origin Time - Date (UTC) - MM/DD/YYYY'] + 
+                                                        ' ' + parsed_data['Origin Time - Time (UTC) - HH:MM:ss'])
 
         # Add milliseconds to new column
         parsed_data['Origin DateTime'] = parsed_data['Origin DateTime'] + pd.to_timedelta(parsed_data['Origin Time - Millisecond (UTC)'], unit='ms')
@@ -253,15 +258,13 @@ class MSPlot():
         """
         data = self.data
 
-        # Take the first 100 entries
-        df_100 = data.iloc[:101]  # for DEVELOPMENT PURPOSES
+        # Take the first 100 entries for DEVELOPMENT PURPOSES
+        df_100 = data.iloc[:101]
 
         # Ensure DateTime values are in chronological order
         df_100 = df_100.sort_values(by='Origin DateTime')
 
         # Filter data based on the start and stop times
-
-        # Check if start and end times are set
         if self.plot_start_time is None:
             self.plot_start_time = df_100['Origin DateTime'].min()
 
@@ -271,10 +274,7 @@ class MSPlot():
         # Filter dataframe
         df_filtered = df_100[(df_100['Origin DateTime'] >= self.plot_start_time) & (df_100['Origin DateTime'] <= self.plot_end_time)]
 
-        # Create a list of unique times for the slider
-        # times = df_filtered['Origin DateTime'].unique()
-
-        # Create the MS Plot
+        # Create the 3D scatter plot
         MSplot = go.Scatter3d(
             x=df_filtered['Easting (ft)'],  # X-axis: Easting
             y=df_filtered['Northing (ft)'],  # Y-axis: Northing
@@ -284,7 +284,7 @@ class MSPlot():
             marker=dict(
                 sizemode='diameter',  # Set the size mode to diameter
                 sizeref=25,  # Adjust the size scaling factor
-                size=abs(df_filtered[self.size_by]) * 100,  #Set size
+                size=abs(df_filtered[self.size_by]) * 100,  # Set size
                 color=df_filtered[self.color_by],  # Set which column to color by
                 colorscale=self.color_scale,  # Set color scale
                 cmin=df_filtered[self.color_by].min(),  # Set min
@@ -294,5 +294,14 @@ class MSPlot():
             name=f'Microseismic Events'
         )
 
-        # Return MS plot object
         return MSplot
+
+    def update_with_slider(self, start_time=None, end_time=None):
+        # Update the start and end times based on the slider values
+        if start_time:
+            self.plot_start_time = start_time
+        if end_time:
+            self.plot_end_time = end_time
+
+        # Create the updated plot with the new time range
+        return self.create_plot()

@@ -5,12 +5,14 @@
 
 # Import needed libraries
 import pandas as pd
-import os
 import plotly.graph_objects as go
 
+# NOTE. UPDATE ALL DOCSTRINGS. NOT CURRENTLY UP TO DATE.
 
 class MSPlot():
     """
+    NOT UP TO DATE.
+
     A class for loading, parsing, and viewing microseismic events in 3D space given a CSV file.
 
     Attributes
@@ -18,15 +20,6 @@ class MSPlot():
     MScatalog : str
         The relative path to the CSV file containing the microseismic data.
         This dataset must contain the following column names to be compatible:
-        - File Name: Identifying name of the microseismic event.
-        - Easting: The Easting coordinate of the event in feet.
-        - Northing: The Northing coordinate of the event in feet.
-        - Depth TVDSS: The depth of the event in feet.
-        - Origin Time - Date (UTC): Origin date in MM/DD/YYYY format.
-        - Origin Time - Time (UTC): Origin time in HH:MM:ss format.
-        - Origin Time - Millisecond (UTC): Millisecond count added to the Origin Time - Time (UTC) value.
-        - Brune Magnitude: Brune magnitude of the event as a negative decimal value.
-        - Stage: Stage of the event as an integer value.
 
     color_by : str
         The attribute used to determine the color of each plot point. Default is 'Stage'.
@@ -82,6 +75,7 @@ class MSPlot():
 
     def __init__(self):
         """
+        NOT UP TO DATE.
         Initialize the MSViewer with the given parameters.
 
         Parameters
@@ -152,11 +146,10 @@ class MSPlot():
 
     def load_csv(self, MScatalog):
         """
+        NOT UP TO DATE.
         Load and parse the dataset.
 
-        Reads the data from the CSV file by its relative path, processes it by renaming columns,
-        converting columns to appropriate datatypes, and combining time columns.
-        Returns a Pandas DataFrame with the cleaned data.
+        Reads the data from the CSV file by its relative path and returns a Pandas DataFrame with the cleaned data.
 
         Parameters
         ----------
@@ -171,63 +164,14 @@ class MSPlot():
             - Easting (ft): The Easting coordinate of the event in feet.
             - Northing (ft): The Northing coordinate of the event in feet.
             - Depth TVDSS (ft): The depth of the event in feet.
-            - Origin Time - Date (UTC) - MM/DD/YYYY: The date of origin in UTC in MM/DD/YYYY format (str).
-            - Origin Time - Time (UTC) - HH:MM:ss: The time of origin in UTC in HH:MM:ss format (str).
             - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss 
             format (str).
             - Brune Magnitude: The Brune magnitude of the event (float).
             - Stage: The stage identifier (int).
-
-        Raises
-        ------
-        FileNotFoundError
-            If the file specified by MScatalog does not exist.
         """
-        # Check if the file exists
-        if not os.path.exists(MScatalog):
-            raise FileNotFoundError(f"File not found: {MScatalog}")
 
-        # Load in the file
-        needed_cols = pd.read_csv(MScatalog,  # Specify file
-                                  usecols=['File Name', 'Easting', 'Northing', 'Depth TVDSS', 
-                                           'Origin Time - Date (UTC)', 'Origin Time - Time (UTC)', 
-                                           'Origin Time - Millisecond (UTC)', 
-                                           'Brune Magnitude', 'Stage'],  # Specify columns
-                                  skiprows=[1],  # Skip units row
-                                  dtype={'File Name': str,  # Specify datatype
-                                         'Easting': float,
-                                         'Northing': float,
-                                         'Depth TVDSS': float,
-                                         'Origin Time - Date (UTC)': str,
-                                         'Origin Time - Time (UTC)': str,
-                                         'Origin Time - Millisecond (UTC)': int,
-                                         'Brune Magnitude': float,
-                                         'Stage': int
-                                         })
-
-        # Rename column names
-        parsed_data = needed_cols.rename(columns={'Easting': 'Easting (ft)',
-                                                  'Northing': 'Northing (ft)',
-                                                  'Depth TVDSS': 'Depth TVDSS (ft)',
-                                                  'Origin Time - Date (UTC)': 'Origin Time - Date (UTC) - MM/DD/YYYY',
-                                                  'Origin Time - Time (UTC)': 'Origin Time - Time (UTC) - HH:MM:ss',
-                                                  })
-
-        # Convert UTC to datetime
-        # Combine Origin Time - Date (UTC) - MM/DD/YYYY and Origin Time - Time (UTC) - HH:MM:ss columns
-        parsed_data['Origin DateTime'] = pd.to_datetime(parsed_data['Origin Time - Date (UTC) - MM/DD/YYYY'] + 
-                                                        ' ' + parsed_data['Origin Time - Time (UTC) - HH:MM:ss'])
-
-        # Add milliseconds to new column
-        parsed_data['Origin DateTime'] = parsed_data['Origin DateTime'] + pd.to_timedelta(parsed_data['Origin Time - Millisecond (UTC)'], unit='ms')
-
-        # Convert Brune Magnitude column to float datatype
-        parsed_data['Brune Magnitude'] = parsed_data['Brune Magnitude'].astype(float)
-
-        # Make depth negative for plotting
-        parsed_data['Depth TVDSS (ft)'] = -parsed_data['Depth TVDSS (ft)']
-
-        self.data = parsed_data
+        # Load the CSV file
+        self.data = pd.read_csv(MScatalog)
 
         print('Success!')
 
@@ -235,6 +179,7 @@ class MSPlot():
 
     def create_plot(self):
         """
+        NOT UP TO DATE.
         Creates an interactive 3D scatter plot object for seismic data.
 
         Generates data for a 3D scatter plot where each point represents a seismic event,

@@ -1,56 +1,44 @@
 # Create a plotter to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 07-APRIL-2025
+# Date last modified: 10-APRIL-2025
 
 # Import needed libraries
 import pandas as pd
 import plotly.graph_objects as go
-import pyproj
+import plotly.express as px
 
 class WellPlot():
     def __init__(self):
         self.data = None
 
-    def load_csv(self, welltraj_file):
-        # Load the well trajectory file
-        file = pd.ExcelFile(welltraj_file)
-
-        # Load each sheet within the excel file for each individual well
-        well_data = {sheet: file.parse(sheet) for sheet in file.sheet_names}
-        self.data = well_data
-        
+    def load_csv(self, welltraj_files):
+        # Load each CSV file and store in a dictionary with well name
+        for path in welltraj_files:
+            well_name = path.split('\\')[-1].replace('.csv', '')
+            try:
+                df = pd.read_csv(path)
+                self.data[well_name] = df
+            except Exception as e:
+                print(f"Error loading {path}: {e}")
+                return False
+            
         print('Success!')
         return True
 
     def create_plot(self):
-        colors = ['red', 'blue', 'green', 'orange'] 
         well_traces = []
-        
-        # Translate data to be in the same coordinate system as the microseismic data
-        reference_point = [31.97706, -103.70791]
-        proj_wgs84 = pyproj.CRS('EPSG:4326')
-        proj_spcs = pyproj.CRS('EPSG:32039')
-        transformer = pyproj.Transformer.from_crs(proj_wgs84, proj_spcs, always_xy=True)
-        reference_easting, reference_northing = transformer.transform(reference_point[1], reference_point[0])
 
+        # Generate a color palette with as many colors as wells
+        color_scale = px.colors.qualitative.Plotly  # 10-color palette
+        if len(self.data) > len(color_scale):
+        # If more wells than colors, extend colors using repeat or other methods
+            color_scale = px.colors.qualitative.Alphabet  # more unique colors
+        
         # Add each trace to the well plot
         for i, (well, df) in enumerate(self.data.items()):
-
-            # Ensure columns are numeric
-            df.loc[:, 'Easting'] = pd.to_numeric(df['Easting'], errors='coerce')
-            df.loc[:, 'Northing'] = pd.to_numeric(df['Northing'], errors='coerce')
-            df.loc[:, 'True Vertical Depth'] = pd.to_numeric(df['True Vertical Depth'], errors='coerce')
-
-            # Invert depth for plotting
-            df.loc[:, 'Depth'] = -1 * df['True Vertical Depth']
-
-            # Update spatial coordinates
-            df.loc[:, 'Referenced Easting (ft)'] = reference_easting + df['Easting']
-            df.loc[:, 'Referenced Northing (ft)'] = reference_northing + df['Northing']
-
-            # Cycle through colors for each well
-            nxtcolor = colors[i % len(colors)]
+            # Generate a color for the current well
+            nxtcolor = color_scale[i % len(color_scale)]
             
             # Create a 3D scatter trace for the current well
             well_trace = go.Scatter3d(

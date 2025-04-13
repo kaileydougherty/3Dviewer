@@ -1,7 +1,7 @@
 # Create a plotter to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 10-APRIL-2025
+# Date last modified: 13-APRIL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -10,7 +10,7 @@ import plotly.express as px
 
 class WellPlot():
     def __init__(self):
-        self.data = None
+        self.data = {}
 
     def load_csv(self, welltraj_files):
         # Load each CSV file and store in a dictionary with well name
@@ -29,9 +29,11 @@ class WellPlot():
     def create_plot(self):
         well_traces = []
 
+        df = self.data
+
         # Generate a color palette with as many colors as wells
         color_scale = px.colors.qualitative.Plotly  # 10-color palette
-        if len(self.data) > len(color_scale):
+        if len(df) > len(color_scale):
         # If more wells than colors, extend colors using repeat or other methods
             color_scale = px.colors.qualitative.Alphabet  # more unique colors
         
@@ -44,7 +46,7 @@ class WellPlot():
             well_trace = go.Scatter3d(
                 x=df['Referenced Easting (ft)'],
                 y=df['Referenced Northing (ft)'],
-                z=df['Depth'],
+                z=df['True Vertical Depth (ft)'],
                 mode='lines',
                 line=dict(
                     color=nxtcolor,

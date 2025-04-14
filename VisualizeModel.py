@@ -1,16 +1,46 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 07-APRIL-2025
+# Date last modified: 13-APRIL-2025
 
 # Import needed libraries
 import plotly.graph_objects as go
 
+# UPDATE documentation after slider completetion.
+
+
 class DataViewer:
+    """
+    A class to visualize well and seismic data in a 3D Plotly figure, including
+    interactive sliders for adjusting the time window of the seismic data display.
+
+    Attributes
+    ----------
+    plot_objects : list
+        A list of Plotly trace objects (typically Scatter3d) representing wells and/or seismic events.
+    """
     def __init__(self, plot_objects):
+        """
+        Initialize the DataViewer with a list of plot objects.
+
+        Parameters
+        ----------
+        plot_objects : list
+            A list containing Plotly trace objects or nested lists of such objects,
+            typically generated from WellPlot and MSPlot classes.
+        """
         self.plot_objects = plot_objects
 
     def draw(self):
+        """
+        UPDATE after slider completion.
+
+        Draw the 3D visualization with time sliders using Plotly.
+
+        This method creates a Plotly 3D figure and adds all provided Scatter3d traces.
+        It also creates two interactive sliders — one for selecting the start time and
+        one for the end time of the seismic data range.
+        """
         fig = go.Figure()
 
         # Add traces to the figure

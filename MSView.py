@@ -1,19 +1,19 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 07-APRIL-2025
+# Date last modified: 13-APRIL-2025
 
 # Import needed libraries
 import pandas as pd
 import plotly.graph_objects as go
 
-# NOTE. UPDATE ALL DOCSTRINGS. NOT CURRENTLY UP TO DATE.
+# UPDATE documentation after slider completetion.
+
 
 class MSPlot():
     """
-    NOT UP TO DATE.
-
-    A class for loading, parsing, and viewing microseismic events in 3D space given a CSV file.
+    A class for loading a microseismic event CSV file and creating a Plotly plotting object to visualize
+    these events in a 3D space.
 
     Attributes
     ----------
@@ -48,7 +48,7 @@ class MSPlot():
         Creates an interactive 3D scatter plot object for seismic data.
 
     load_csv(self, MScatalog):
-        Loads and parses the data from the file specified by the MScatalog attribute, 
+        Loads and parses the data from the file specified by the MScatalog attribute,
         returning a Pandas DataFrame with structured data.
 
     set_colorby(color_by):
@@ -75,23 +75,21 @@ class MSPlot():
 
     def __init__(self):
         """
-        NOT UP TO DATE.
         Initialize the MSViewer with the given parameters.
 
         Parameters
         ----------
         MScatalog : str
             The relative path to the CSV file containing the microseismic data.
-            This dataset must contain the following column names to be compatible:
-            - File Name: Identifying name of the microseismic event.
-            - Easting: The Easting coordinate of the event in feet.
-            - Northing: The Northing coordinate of the event in feet.
-            - Depth TVDSS: The depth of the event in feet.
-            - Origin Time - Date (UTC): Origin date in MM/DD/YYYY format.
-            - Origin Time - Time (UTC): Origin time in HH:MM:ss format.
-            - Origin Time - Millisecond (UTC): Millisecond count added to the Origin Time - Time (UTC) value.
-            - Brune Magnitude: Brune magnitude of the event as a negative decimal value.
-            - Stage: Stage of the event as an integer value.
+            This dataset must contain the following columns to be compatible:
+            - File Name: The name of the event file.
+            - Easting (ft): The Easting coordinate of the event in feet.
+            - Northing (ft): The Northing coordinate of the event in feet.
+            - Depth TVDSS (ft): The depth of the event in feet.
+            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss
+            format (str).
+            - Brune Magnitude: The Brune magnitude of the event (float).
+            - Stage: The stage identifier (int).
 
         color_by : str, optional
             The attribute used for color encoding. Default is 'Stage'.
@@ -146,15 +144,22 @@ class MSPlot():
 
     def load_csv(self, MScatalog):
         """
-        NOT UP TO DATE.
-        Load and parse the dataset.
-
+        Load the dataset.
         Reads the data from the CSV file by its relative path and returns a Pandas DataFrame with the cleaned data.
 
         Parameters
         ----------
         MScatalog : str
             The relative path to the CSV file containing the microseismic data.
+            This dataset must contain the following columns to be compatible:
+            - File Name: The name of the event file.
+            - Easting (ft): The Easting coordinate of the event in feet.
+            - Northing (ft): The Northing coordinate of the event in feet.
+            - Depth TVDSS (ft): The depth of the event in feet.
+            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss
+            format (str).
+            - Brune Magnitude: The Brune magnitude of the event (float).
+            - Stage: The stage identifier (int).
 
         Returns
         -------
@@ -164,7 +169,7 @@ class MSPlot():
             - Easting (ft): The Easting coordinate of the event in feet.
             - Northing (ft): The Northing coordinate of the event in feet.
             - Depth TVDSS (ft): The depth of the event in feet.
-            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss 
+            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss
             format (str).
             - Brune Magnitude: The Brune magnitude of the event (float).
             - Stage: The stage identifier (int).
@@ -179,11 +184,10 @@ class MSPlot():
 
     def create_plot(self):
         """
-        NOT UP TO DATE.
         Creates an interactive 3D scatter plot object for seismic data.
 
         Generates data for a 3D scatter plot where each point represents a seismic event,
-        with `Easting (ft)`, `Northing (ft)`, and `Depth (ft)` as the coordinates. The points are colored
+        with `Easting (ft)`, `Northing (ft)`, and 'Depth TVDSS (ft)' as the coordinates. The points are colored
         and sized based on the `Brune Magnitude` of each event.
 
         The plot is interactive and includes hover text displaying the file name, stage, and
@@ -217,14 +221,22 @@ class MSPlot():
             self.plot_end_time = df_100['Origin DateTime'].max()
 
         # Filter dataframe
-        df_filtered = df_100[(df_100['Origin DateTime'] >= self.plot_start_time) & (df_100['Origin DateTime'] <= self.plot_end_time)]
+        df_filtered = df_100[(df_100['Origin DateTime'] >= self.plot_start_time) & (df_100['Origin DateTime']
+                                                                                    <= self.plot_end_time)]
 
         # Create the 3D scatter plot
         MSplot = go.Scatter3d(
             x=df_filtered['Easting (ft)'],  # X-axis: Easting
             y=df_filtered['Northing (ft)'],  # Y-axis: Northing
             z=df_filtered['Depth TVDSS (ft)'],  # Z-axis: Depth
-            text=df_filtered.apply(lambda row: f"File: {row['File Name']}<br>Stage: {row['Stage']}<br>Magnitude: {row['Brune Magnitude']:.2f}", axis=1),  # Hover text: File Name, Stage, Brune Magnitude
+            text=df_filtered.apply(
+                lambda row: (
+                    f"File: {row['File Name']}<br>"
+                    f"Stage: {row['Stage']}<br>"
+                    f"Magnitude: {row['Brune Magnitude']:.2f}"
+                ),
+                axis=1
+            ),  # ← the missing comma goes here
             mode='markers',
             marker=dict(
                 sizemode='diameter',  # Set the size mode to diameter
@@ -236,12 +248,15 @@ class MSPlot():
                 cmax=df_filtered[self.color_by].max(),  # Set max
                 colorbar=dict(title=f'{self.color_by}'),  # Color bar title
             ),
-            name=f'Microseismic Events'
+            name='Microseismic Events'
         )
 
         return MSplot
 
     def update_with_slider(self, start_time=None, end_time=None):
+        '''
+        UPDATE documentation after completion.
+        '''
         # Update the start and end times based on the slider values
         if start_time:
             self.plot_start_time = start_time

@@ -9,30 +9,44 @@ import ipywidgets as widgets
 import pandas as pd
 from IPython.display import display, clear_output
 
-# UPDATE documentation after slider completetion.
-
 
 class DataViewer:
     """
-    UPDATE documentation.
+    A class to visualize well trajectories and microseismic event data using interactive 3D Plotly figures.
 
-    A class to visualize well and seismic data in a 3D Plotly figure, including
-    interactive sliders for adjusting the time window of the seismic data display.
+    This class integrates well data and time-filtered seismic data into a single visualization.
+    If a microseismic data object is provided, interactive sliders allow users to filter and display events
+    based on their origin timestamps.
 
     Attributes
     ----------
+    MSobj : object, optional
+        An object representing microseismic data, expected to have 'data',
+        'set_start_time', 'set_end_time', and 'create_plot' attributes/methods.
+    well_objs : list, optional
+        A list of Plotly-compatible 3D trace objects representing well trajectories.
     plot_objects : list
-        A list of Plotly trace objects (typically Scatter3d) representing wells and/or seismic events.
+        A combined list of all Plotly trace objects to be displayed, including well and seismic traces.
+    _last_fig : go.Figure or None
+        Stores the most recently generated Plotly figure.
+    start_slider : ipywidgets.SelectionSlider
+        Widget for selecting the start time of the seismic event window.
+    end_slider : ipywidgets.SelectionSlider
+        Widget for selecting the end time of the seismic event window.
+    out : ipywidgets.Output
+        Output area used for rendering the updated Plotly figure.
     """
     def __init__(self, MS_obj=None, well_objs=None):
         """
-        Initialize the DataViewer with a list of plot objects.
+        Initialize the DataViewer with optional well and seismic data sources.
 
         Parameters
         ----------
-        plot_objects : list
-            A list containing Plotly trace objects or nested lists of such objects,
-            typically generated from WellPlot and MSPlot classes.
+        MS_obj : object, optional
+            A microseismic plotting object with a pandas 'data' attribute and methods:
+            'set_start_time', 'set_end_time', and 'create_plot'.
+        well_objs : list, optional
+            A list of Plotly 3D trace objects providing well trajectories.
         """
         self.MSobj = MS_obj
         self.well_objs = well_objs if well_objs is not None else []
@@ -45,7 +59,10 @@ class DataViewer:
 
     def draw(self):
         """
-        Draw the 3D visualization using Plotly and ipywidgets sliders.
+        Render the 3D visualization in a Jupyter notebook.
+
+        If a microseismic object is present, interactive sliders allow filtering seismic events
+        by origin time. If not, only the well trajectories are displayed.
         """
         if self.MSobj is not None:
             # Extract and downsample unique timestamps
@@ -99,6 +116,17 @@ class DataViewer:
             self._last_fig = fig
 
     def update_plot(self, change=None):
+        """
+        Update the 3D plot based on the selected time window from the sliders.
+
+        This method filters the microseismic events to those occurring within the selected
+        time range and re-renders the plot with both well and filtered MS data.
+
+        Parameters
+        ----------
+        change : dict, optional
+            Optional change dictionary passed automatically by the widget observer.
+        """
         with self.out:
             clear_output(wait=True)
 

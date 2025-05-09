@@ -1,7 +1,7 @@
 # Create a plotter to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 13-APRIL-2025
+# Date last modified: 09-MAY-2025
 
 # Import needed libraries
 import pandas as pd
@@ -52,7 +52,7 @@ class WellPlot():
             Each file must contain at least the following columns to be compatible:
             - 'Referenced Easting (ft)'
             - 'Referenced Northing (ft)'
-            - 'True Vertical Depth (ft)'
+            - 'TVDSS (ft)'
 
         Returns
         -------
@@ -98,7 +98,7 @@ class WellPlot():
             well_trace = go.Scatter3d(
                 x=df['Referenced Easting (ft)'],
                 y=df['Referenced Northing (ft)'],
-                z=df['True Vertical Depth (ft)'],
+                z=df['TVDSS (ft)'],
                 mode='lines',
                 line=dict(
                     color=nxtcolor,

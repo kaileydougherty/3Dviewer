@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 20-APRIL-2025
+# Date last modified: 30-JUN-2025
 
 # Import needed libraries
 import plotly.graph_objects as go
@@ -102,7 +102,8 @@ class DataViewer:
                 scene=dict(
                     xaxis_title='Easting (ft)',
                     yaxis_title='Northing (ft)',
-                    zaxis_title='Depth (ft)'
+                    zaxis_title='Depth (ft)',
+                    zaxis=dict(autorange='reversed')
                 ),
                 title="Well Trajectories",
                 height=700,
@@ -150,7 +151,8 @@ class DataViewer:
                 scene=dict(
                     xaxis_title='Easting (ft)',
                     yaxis_title='Northing (ft)',
-                    zaxis_title='Depth (ft)'
+                    zaxis_title='Depth (ft)',
+                    zaxis=dict(autorange='reversed')
                 ),
                 title="Filtered Microseismic Events",
                 height=700,
@@ -158,7 +160,7 @@ class DataViewer:
                     x=0,
                     y=1,
                     xanchor='left',
-                    yanchor='top',
+                    yanchor='top'
                 )
             )
 

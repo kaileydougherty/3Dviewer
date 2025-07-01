@@ -1,13 +1,13 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 30-JUN-2025
+# Date last modified: 01-JUL-2025
 
 # Import needed libraries
+import dash
+from dash import html, dcc, Input, Output
 import plotly.graph_objects as go
-import ipywidgets as widgets
 import pandas as pd
-from IPython.display import display, clear_output
 
 
 class DataViewer:
@@ -57,112 +57,94 @@ class DataViewer:
             for obj in well_objs:
                 self.plot_objects.append(obj)
 
-    def draw(self):
+    def run_dash_app(self):
         """
-        Render the 3D visualization in a Jupyter notebook.
-
-        If a microseismic object is present, interactive sliders allow filtering seismic events
-        by origin time. If not, only the well trajectories are displayed.
+        Run the Dash web application for visualizing microseismic and well data.
         """
-        if self.MSobj is not None:
-            # Extract and downsample unique timestamps
-            unique_times = sorted(pd.to_datetime(self.MSobj.data['Origin DateTime'].unique()))
-            unique_times_downsampled = unique_times[::10] if len(unique_times) > 10 else unique_times
+        if self.MSobj is None or self.well_objs is None:
+            print("Error: MSobj and well_objs must be set before running the Dash app.")
+            return
 
-            # Create sliders
-            self.start_slider = widgets.SelectionSlider(
-                options=unique_times_downsampled,
-                description='Start Time:',
-                layout=widgets.Layout(width='95%'),
-                style={'description_width': 'initial'}
-            )
+        sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().unique()
+        min_idx = 0
+        max_idx = len(sorted_times) - 1
 
-            self.end_slider = widgets.SelectionSlider(
-                options=unique_times_downsampled,
-                description='End Time:',
-                value=unique_times_downsampled[-1],
-                layout=widgets.Layout(width='95%'),
-                style={'description_width': 'initial'}
-            )
+        color_options = [
+            {'label': 'Stage', 'value': 'Stage'},
+            {'label': 'Brune Magnitude', 'value': 'Brune Magnitude'},
+        ]
 
-            self.out = widgets.Output()
+        app = dash.Dash(__name__)
+        app.layout = html.Div([
+            html.H1("Microseismic and Well Trajectory Viewer"),
 
-            # Attach update method and slider callbacks
-            self.start_slider.observe(self.update_plot, names='value')
-            self.end_slider.observe(self.update_plot, names='value')
+            html.Label("Color points by:"),
+            dcc.Dropdown(
+                id='color-by-dropdown',
+                options=color_options,
+                value='Stage',
+                clearable=False,
+                style={'width': '300px'}
+            ),
 
-            # Display the widgets
-            display(widgets.VBox([self.start_slider, self.end_slider, self.out]))
-            self.update_plot()
+            html.Label("Start Time:"),
+            dcc.Slider(
+                id='start-time-slider',
+                min=min_idx,
+                max=max_idx,
+                value=min_idx,
+                marks={i: str(sorted_times[i].date()) for i in range(0, len(sorted_times), max(1, len(sorted_times)//5)
+                                                                     )},
+                step=1
+            ),
 
-        else:
-            # If no MSobj is passed, just show the wells
-            fig = go.Figure(data=self.well_objs)
+            html.Label("End Time:"),
+            dcc.Slider(
+                id='end-time-slider',
+                min=min_idx,
+                max=max_idx,
+                value=max_idx,
+                marks={i: str(sorted_times[i].date()) for i in range(0, len(sorted_times), max(1, len(sorted_times)//5)
+                                                                     )},
+                step=1
+            ),
+
+            dcc.Graph(id='combined-3d-plot', figure=go.Figure())
+        ])
+
+        @app.callback(
+            Output('combined-3d-plot', 'figure'),
+            Input('color-by-dropdown', 'value'),
+            Input('start-time-slider', 'value'),
+            Input('end-time-slider', 'value'),
+            Input('combined-3d-plot', 'relayoutData')
+        )
+        def update_combined_plot(color_by, start_idx, end_idx, relayout_data):
+            start_time = sorted_times[min(start_idx, end_idx)]
+            end_time = sorted_times[max(start_idx, end_idx)]
+
+            # Update microseismic data
+            self.MSobj.set_colorby(color_by)
+            self.MSobj.set_start_time(str(start_time))
+            self.MSobj.set_end_time(str(end_time))
+            ms_traces = [self.MSobj.create_plot()]
+            well_traces = self.well_objs if isinstance(self.well_objs, list) else [self.well_objs]
+
+            # Combine into one figure
+            fig = go.Figure(data=ms_traces + well_traces)
             fig.update_layout(
                 scene=dict(
-                    xaxis_title='Easting (ft)',
-                    yaxis_title='Northing (ft)',
-                    zaxis_title='Depth (ft)',
+                    xaxis_title="Easting (ft)",
+                    yaxis_title="Northing (ft)",
+                    zaxis_title="TVDSS (ft)",
                     zaxis=dict(autorange='reversed')
-                ),
-                title="Well Trajectories",
-                height=700,
-                legend=dict(
-                    x=0.01, y=0.99,
-                    bordercolor="black",
-                    borderwidth=1,
-                )
-            )
-            fig.show()
-            self._last_fig = fig
-
-    def update_plot(self, change=None):
-        """
-        Update the 3D plot based on the selected time window from the sliders.
-
-        This method filters the microseismic events to those occurring within the selected
-        time range and re-renders the plot with both well and filtered MS data.
-
-        Parameters
-        ----------
-        change : dict, optional
-            Optional change dictionary passed automatically by the widget observer.
-        """
-        with self.out:
-            clear_output(wait=True)
-
-            start_time = self.start_slider.value
-            end_time = self.end_slider.value
-
-            if start_time > end_time:
-                print("Warning: Start time must be before end time.")
-                return
-
-            # Update MSPlot time window
-            self.MSobj.set_start_time(start_time.strftime("%Y-%m-%d %H:%M:%S"))
-            self.MSobj.set_end_time(end_time.strftime("%Y-%m-%d %H:%M:%S"))
-
-            # Generate new seismic trace
-            ms_trace = self.MSobj.create_plot()
-
-            # Build 3D figure
-            fig = go.Figure(data=self.well_objs + [ms_trace])
-            fig.update_layout(
-                scene=dict(
-                    xaxis_title='Easting (ft)',
-                    yaxis_title='Northing (ft)',
-                    zaxis_title='Depth (ft)',
-                    zaxis=dict(autorange='reversed')
-                ),
-                title="Filtered Microseismic Events",
-                height=700,
-                legend=dict(
-                    x=0,
-                    y=1,
-                    xanchor='left',
-                    yanchor='top'
                 )
             )
 
-            fig.show()
-            self._last_fig = fig
+            # Preserve user camera
+            if relayout_data and 'scene.camera' in relayout_data:
+                fig.update_layout(scene_camera=relayout_data['scene.camera'])
+
+            return fig
+
+        app.run(debug=True)

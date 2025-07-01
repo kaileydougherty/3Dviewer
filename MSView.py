@@ -241,8 +241,13 @@ class MSPlot():
                 colorscale=self.color_scale,  # Set color scale
                 cmin=df_filtered[self.color_by].min(),  # Set min
                 cmax=df_filtered[self.color_by].max(),  # Set max
-                colorbar=dict(title=f'{self.color_by}'),  # Color bar title
-            ),
+                colorbar=dict(title=f'{self.color_by}',
+                              x=0.9,
+                              xanchor='left',
+                              len=0.75,
+                              y=0.75,
+                              yanchor='middle'
+                              ),),
             name='Microseismic Events'
         )
 

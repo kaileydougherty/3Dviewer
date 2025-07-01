@@ -138,6 +138,16 @@ class DataViewer:
                     yaxis_title="Northing (ft)",
                     zaxis_title="TVDSS (ft)",
                     zaxis=dict(autorange='reversed')
+                ),
+                legend=dict(
+                    x=1.02,
+                    y=1,
+                    xanchor='left',
+                    yanchor='top',
+                    bordercolor="Black",
+                    borderwidth=1,
+                    bgcolor="white",
+                    font=dict(size=12)
                 )
             )
 

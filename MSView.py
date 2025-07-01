@@ -1,13 +1,11 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 13-APRIL-2025
+# Date last modified: 01-JUL-2025
 
 # Import needed libraries
 import pandas as pd
 import plotly.graph_objects as go
-
-# UPDATE documentation after slider completetion.
 
 
 class MSPlot():
@@ -207,22 +205,19 @@ class MSPlot():
         """
         data = self.data
 
-        # Take the first 100 entries for DEVELOPMENT PURPOSES
-        df_100 = data.iloc[:101]
-
-        # Ensure DateTime values are in chronological order
-        df_100 = df_100.sort_values(by='Origin DateTime')
+        df = data.copy()
+        df = df.sort_values(by='Origin DateTime')
 
         # Filter data based on the start and stop times
         if self.plot_start_time is None:
-            self.plot_start_time = df_100['Origin DateTime'].min()
+            self.plot_start_time = df['Origin DateTime'].min()
 
         if self.plot_end_time is None:
-            self.plot_end_time = df_100['Origin DateTime'].max()
+            self.plot_end_time = df['Origin DateTime'].max()
 
         # Filter dataframe
-        df_filtered = df_100[(df_100['Origin DateTime'] >= self.plot_start_time) & (df_100['Origin DateTime']
-                                                                                    <= self.plot_end_time)]
+        df_filtered = df[(df['Origin DateTime'] >= self.plot_start_time) & (df['Origin DateTime']
+                                                                            <= self.plot_end_time)]
 
         # Create the 3D scatter plot
         MSplot = go.Scatter3d(
@@ -236,7 +231,7 @@ class MSPlot():
                     f"Magnitude: {row['Brune Magnitude']:.2f}"
                 ),
                 axis=1
-            ),  # ← the missing comma goes here
+            ),
             mode='markers',
             marker=dict(
                 sizemode='diameter',  # Set the size mode to diameter
@@ -252,16 +247,3 @@ class MSPlot():
         )
 
         return MSplot
-
-    def update_with_slider(self, start_time=None, end_time=None):
-        '''
-        UPDATE documentation after completion.
-        '''
-        # Update the start and end times based on the slider values
-        if start_time:
-            self.plot_start_time = start_time
-        if end_time:
-            self.plot_end_time = end_time
-
-        # Create the updated plot with the new time range
-        return self.create_plot()

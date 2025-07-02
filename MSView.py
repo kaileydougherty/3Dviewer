@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 01-JUL-2025
+# Date last modified: 02-JUL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -241,13 +241,15 @@ class MSPlot():
                 colorscale=self.color_scale,  # Set color scale
                 cmin=df_filtered[self.color_by].min(),  # Set min
                 cmax=df_filtered[self.color_by].max(),  # Set max
-                colorbar=dict(title=f'{self.color_by}',
-                              x=0.9,
-                              xanchor='left',
-                              len=0.75,
-                              y=0.75,
-                              yanchor='middle'
-                              ),),
+                colorbar=dict(
+                    title=f'{self.color_by}',
+                    x=0.9,
+                    xanchor='left',
+                    y=0.75,
+                    yanchor='middle'
+                ),
+                line=dict(width=0)
+            ),
             name='Microseismic Events'
         )
 

@@ -243,9 +243,9 @@ class MSPlot():
                 cmax=df_filtered[self.color_by].max(),  # Set max
                 colorbar=dict(
                     title=f'{self.color_by}',
-                    x=0.9,
+                    x=1.05,
                     xanchor='left',
-                    y=0.75,
+                    y=0.40,
                     yanchor='middle'
                 ),
                 line=dict(width=0)

@@ -155,4 +155,8 @@ class DataViewer:
 
             return fig
 
-        app.run(debug=True)
+        host = "127.0.0.1"
+        port = 8050
+        print(f"Dash app running at http://{host}:{port}")
+
+        app.run(debug=True, host=host, port=port)

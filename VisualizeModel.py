@@ -96,7 +96,11 @@ class DataViewer:
                 allowCross=False
             ),
 
-            dcc.Graph(id='combined-3d-plot', figure=go.Figure())
+            dcc.Graph(
+                id='combined-3d-plot',
+                figure=go.Figure(),
+                style={'height': '600px', 'width': '90%'}
+            )
         ])
 
         @app.callback(
@@ -120,6 +124,8 @@ class DataViewer:
             # Combine into one figure
             fig = go.Figure(data=ms_traces + well_traces)
             fig.update_layout(
+                height=700,
+                width=1000,
                 scene=dict(
                     xaxis_title="Easting (ft)",
                     yaxis_title="Northing (ft)",
@@ -138,8 +144,8 @@ class DataViewer:
                     )
                 ),
                 legend=dict(
-                    x=1.02,
-                    y=1,
+                    x=1.18,
+                    y=0.5,
                     xanchor='left',
                     yanchor='top',
                     bordercolor="Black",

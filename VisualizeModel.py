@@ -66,6 +66,11 @@ class DataViewer:
             {'label': 'Brune Magnitude', 'value': 'Brune Magnitude'},
         ]
 
+        # Compute axis ranges from the full microseismic dataset
+        x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
+        y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
+        z_range = [self.MSobj.data['Depth TVDSS (ft)'].min(), self.MSobj.data['Depth TVDSS (ft)'].max()]
+
         app = dash.Dash(__name__)
         app.layout = html.Div([
             html.H1("Microseismic and Well Trajectory Viewer"),
@@ -119,7 +124,18 @@ class DataViewer:
                     xaxis_title="Easting (ft)",
                     yaxis_title="Northing (ft)",
                     zaxis_title="TVDSS (ft)",
-                    zaxis=dict(autorange='reversed')
+                    xaxis=dict(range=x_range, autorange=False),
+                    yaxis=dict(range=y_range, autorange=False),
+                    zaxis=dict(range=z_range, autorange='reversed'),
+                    aspectmode="manual",  # Set aspect mode to manual for custom aspect ratio based on data
+                    aspectratio=dict(
+                        x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0], y_range[1] - y_range[0],
+                                                          abs(z_range[1] - z_range[0])),
+                        y=(y_range[1] - y_range[0]) / max(x_range[1] - x_range[0], y_range[1] - y_range[0],
+                                                          abs(z_range[1] - z_range[0])),
+                        z=abs(z_range[1] - z_range[0]) / max(x_range[1] - x_range[0], y_range[1] - y_range[0],
+                                                             abs(z_range[1] - z_range[0]))
+                    )
                 ),
                 legend=dict(
                     x=1.02,

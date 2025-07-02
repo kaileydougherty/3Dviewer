@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 01-JUL-2025
+# Date last modified: 02-JUL-2025
 
 # Import needed libraries
 import dash
@@ -27,14 +27,6 @@ class DataViewer:
         A list of Plotly-compatible 3D trace objects representing well trajectories.
     plot_objects : list
         A combined list of all Plotly trace objects to be displayed, including well and seismic traces.
-    _last_fig : go.Figure or None
-        Stores the most recently generated Plotly figure.
-    start_slider : ipywidgets.SelectionSlider
-        Widget for selecting the start time of the seismic event window.
-    end_slider : ipywidgets.SelectionSlider
-        Widget for selecting the end time of the seismic event window.
-    out : ipywidgets.Output
-        Output area used for rendering the updated Plotly figure.
     """
     def __init__(self, MS_obj=None, well_objs=None):
         """
@@ -87,26 +79,16 @@ class DataViewer:
                 style={'width': '300px'}
             ),
 
-            html.Label("Start Time:"),
-            dcc.Slider(
-                id='start-time-slider',
+            html.Label("Time Range:"),
+            dcc.RangeSlider(
+                id='time-range-slider',
                 min=min_idx,
                 max=max_idx,
-                value=min_idx,
+                value=[min_idx, max_idx],
                 marks={i: str(sorted_times[i].date()) for i in range(0, len(sorted_times), max(1, len(sorted_times)//5)
                                                                      )},
-                step=1
-            ),
-
-            html.Label("End Time:"),
-            dcc.Slider(
-                id='end-time-slider',
-                min=min_idx,
-                max=max_idx,
-                value=max_idx,
-                marks={i: str(sorted_times[i].date()) for i in range(0, len(sorted_times), max(1, len(sorted_times)//5)
-                                                                     )},
-                step=1
+                step=1,
+                allowCross=False
             ),
 
             dcc.Graph(id='combined-3d-plot', figure=go.Figure())
@@ -115,11 +97,11 @@ class DataViewer:
         @app.callback(
             Output('combined-3d-plot', 'figure'),
             Input('color-by-dropdown', 'value'),
-            Input('start-time-slider', 'value'),
-            Input('end-time-slider', 'value'),
+            Input('time-range-slider', 'value'),
             Input('combined-3d-plot', 'relayoutData')
         )
-        def update_combined_plot(color_by, start_idx, end_idx, relayout_data):
+        def update_combined_plot(color_by, time_range, relayout_data):
+            start_idx, end_idx = time_range
             start_time = sorted_times[min(start_idx, end_idx)]
             end_time = sorted_times[max(start_idx, end_idx)]
 

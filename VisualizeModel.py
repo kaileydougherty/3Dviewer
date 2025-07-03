@@ -96,12 +96,32 @@ class DataViewer:
         ]
 
         if has_ms:
+            # Find all numeric columns for imaging attributes that are not coordinate-related
+            numeric_cols = [col for col in self.MSobj.data.select_dtypes(include='number').columns
+                            if col not in ['Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)']]
+            # Ensure current color_by is first in drop down
+            color_by_default = self.MSobj.color_by
+            color_options = [{'label': color_by_default, 'value': color_by_default}]
+            color_options += [{'label': col, 'value': col} for col in numeric_cols if col != color_by_default]
+            # Ensure current size_by is first in drop down
+            size_by_default = self.MSobj.size_by
+            size_options = [{'label': size_by_default, 'value': size_by_default}]
+            size_options += [{'label': col, 'value': col} for col in numeric_cols if col != size_by_default]
+
             layout_children += [
                 html.Label("Color points by:"),
                 dcc.Dropdown(
                     id='color-by-dropdown',
                     options=color_options,
-                    value='Stage',
+                    value=color_by_default,  # Default to current attribute
+                    clearable=False,
+                    style={'width': '300px'}
+                ),
+                html.Label("Size points by:"),
+                dcc.Dropdown(
+                    id='size-by-dropdown',
+                    options=size_options,
+                    value=size_by_default,  # Default to current attribute
                     clearable=False,
                     style={'width': '300px'}
                 ),
@@ -128,21 +148,23 @@ class DataViewer:
 
         app.layout = html.Div(layout_children)
 
-        # Callback only for microseismic data - range slider and color-by dropdown
+        # Callback only for microseismic data - range slider and color-by, size-by dropdowns
         if has_ms:
             @app.callback(
                 Output('combined-3d-plot', 'figure'),
                 Input('color-by-dropdown', 'value'),
+                Input('size-by-dropdown', 'value'),
                 Input('time-range-slider', 'value'),
                 Input('combined-3d-plot', 'relayoutData')
             )
-            def update_combined_plot(color_by, time_range, relayout_data):
+            def update_combined_plot(color_by, size_by, time_range, relayout_data):
                 start_idx, end_idx = time_range
                 start_time = sorted_times[min(start_idx, end_idx)]
                 end_time = sorted_times[max(start_idx, end_idx)]
 
                 # Update microseismic data
                 self.MSobj.set_colorby(color_by)
+                self.MSobj.set_sizeby(size_by)
                 self.MSobj.set_start_time(str(start_time))
                 self.MSobj.set_end_time(str(end_time))
                 ms_traces = [self.MSobj.create_plot()]

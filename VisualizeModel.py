@@ -142,28 +142,30 @@ class DataViewer:
             return
 
         app = dash.Dash(__name__)
+
         layout_children = [
             html.H1("Microseismic and Well Trajectory Viewer"),
-        ]
 
-        layout_children += [
-                html.Label("Color points by:"),
-                dcc.Dropdown(
-                    id='color-by-dropdown',
-                    options=color_options,
-                    value=color_by_default,  # Default to current attribute
-                    clearable=False,
-                    style={'width': '300px'}
-                ),
-                html.Label("Size points by:"),
-                dcc.Dropdown(
-                    id='size-by-dropdown',
-                    options=size_options,
-                    value=size_by_default,  # Default to current attribute
-                    clearable=False,
-                    style={'width': '300px'}
-                ),
-                html.Label("Time Range:"),
+            html.Label("Color points by:"),
+            dcc.Dropdown(
+                id='color-by-dropdown',
+                options=color_options,
+                value=color_by_default,
+                clearable=False,
+                style={'width': '300px'}
+            ),
+
+            html.Label("Size points by:"),
+            dcc.Dropdown(
+                id='size-by-dropdown',
+                options=size_options,
+                value=size_by_default,
+                clearable=False,
+                style={'width': '300px'}
+            ),
+
+            html.Label("Time Range:"),
+            html.Div(
                 dcc.RangeSlider(
                     id='time-range-slider',
                     min=0,
@@ -173,7 +175,9 @@ class DataViewer:
                     step=1,
                     allowCross=False
                 ),
-            ]
+                style={'width': '98%', 'margin': '0 auto'}
+            )
+        ]
 
         layout_children.append(
             dcc.Graph(

@@ -96,15 +96,13 @@ class DataViewer:
 
             times_filtered = pd.to_datetime(df_filtered['Origin DateTime'])
 
-            # NOTE: Checkpoint for times - troubleshooting
-            print("Times shape:", times_filtered.shape)
-
             if len(times_filtered) > 0:
                 step = max(1, (len(times_filtered) - 1) // (num_labels - 1))
-                marks = {i: str(times_filtered[i].date()) for i in range(0, len(times_filtered), step)}
-                # Ensure the first and last are always included
-                marks[0] = str(times_filtered.iloc[0].date())
-                marks[len(times_filtered) - 1] = str(times_filtered.iloc[-1].date())
+                marks = {i: times_filtered.iloc[i].strftime("%Y-%m-%d %H:%M:%S")
+                         for i in range(0, len(times_filtered), step)}
+                # Ensure first and last always included
+                marks[0] = times_filtered.iloc[0].strftime("%Y-%m-%d %H:%M:%S")
+                marks[len(times_filtered) - 1] = times_filtered.iloc[-1].strftime("%Y-%m-%d %H:%M:%S")
             else:
                 marks = {}
 

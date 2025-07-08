@@ -1,13 +1,14 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 03-JUL-2025
+# Date last modified: 08-JUL-2025
 
 # Import needed libraries
 import dash
 from dash import html, dcc, Input, Output
 import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
 
 
 class DataViewer:
@@ -53,23 +54,77 @@ class DataViewer:
         """
         Run the Dash web application for visualizing microseismic and well data.
         """
+        # NOTE: checkpoint - troubleshooting
+        print("Dash app started")
+
         # Check what data is available
-        has_ms = self.MSobj is not None and hasattr(self.MSobj, "data") and self.MSobj.data is not None
+        has_ms = self.MSobj is not None
         has_well = self.well_objs is not None and len(self.well_objs) > 0
 
         # If microseismic was added, prepare graph
-        if has_ms:
-            sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().unique()
-            min_idx = 0
-            max_idx = len(sorted_times) - 1
-            color_options = [
-                {'label': 'Stage', 'value': 'Stage'},
-                {'label': 'Brune Magnitude', 'value': 'Brune Magnitude'},
-            ]
+        if self.MSobj is not None:
+
+            # Set number of labels for the time range slider, always include first and last
+            num_labels = 5  # NOTE: Could make this an attribute to allow user customization
+
+            df = self.MSobj.data.copy()
+
+            # Consistently sort and reset index for times
+            sorted_times = pd.to_datetime(df['Origin DateTime']).sort_values().reset_index(drop=True)
+
+            # Determine start and end times
+            if self.MSobj.plot_start_time is not None:
+                start_time = pd.to_datetime(self.MSobj.plot_start_time)
+            else:
+                start_time = sorted_times.min() if len(sorted_times) > 0 else None
+
+            if self.MSobj.plot_end_time is not None:
+                end_time = pd.to_datetime(self.MSobj.plot_end_time)
+            else:
+                end_time = sorted_times.max() if len(sorted_times) > 0 else None
+
+            # Find indices for the selected range
+            start_idx = int(np.searchsorted(sorted_times, start_time, side='left'))
+            end_idx = int(np.searchsorted(sorted_times, end_time, side='right') - 1)
+
+            # Clamp indices to valid range
+            start_idx = max(0, min(start_idx, len(sorted_times) - 1))
+            end_idx = max(0, min(end_idx, len(sorted_times) - 1))
+
+            # Now do the filtering
+            df_filtered = df[(sorted_times >= sorted_times[start_idx]) & (sorted_times <= sorted_times[end_idx])]
+
+            times_filtered = pd.to_datetime(df_filtered['Origin DateTime'])
+
+            # NOTE: Checkpoint for times - troubleshooting
+            print("Times shape:", times_filtered.shape)
+
+            if len(times_filtered) > 0:
+                step = max(1, (len(times_filtered) - 1) // (num_labels - 1))
+                marks = {i: str(times_filtered[i].date()) for i in range(0, len(times_filtered), step)}
+                # Ensure the first and last are always included
+                marks[0] = str(times_filtered.iloc[0].date())
+                marks[len(times_filtered) - 1] = str(times_filtered.iloc[-1].date())
+            else:
+                marks = {}
+
             x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
             y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
             z_range = [self.MSobj.data['Depth TVDSS (ft)'].min(), self.MSobj.data['Depth TVDSS (ft)'].max()]
-        elif has_well:
+
+            # Find all numeric columns for imaging attributes that are not coordinate-related
+            numeric_cols = [col for col in self.MSobj.data.select_dtypes(include='number').columns
+                            if col not in ['Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)']]
+            # Ensure current color_by is first in dropdown
+            color_by_default = self.MSobj.color_by
+            color_options = [{'label': color_by_default, 'value': color_by_default}]
+            color_options += [{'label': col, 'value': col} for col in numeric_cols if col != color_by_default]
+            # Ensure current size_by is first in dropdown
+            size_by_default = self.MSobj.size_by
+            size_options = [{'label': size_by_default, 'value': size_by_default}]
+            size_options += [{'label': col, 'value': col} for col in numeric_cols if col != size_by_default]
+
+        elif has_well and not has_ms:
             # If no microseismic object, use well data for axes ranges
             # Assume well_objs is a list of traces with x/y/z attributes
             all_x = []
@@ -82,10 +137,8 @@ class DataViewer:
             x_range = [min(all_x), max(all_x)]
             y_range = [min(all_y), max(all_y)]
             z_range = [min(all_z), max(all_z)]
-            sorted_times = []
-            min_idx = 0
-            max_idx = 0
             color_options = []
+
         else:
             print("Error: No data provided for visualization.")
             return
@@ -95,20 +148,7 @@ class DataViewer:
             html.H1("Microseismic and Well Trajectory Viewer"),
         ]
 
-        if has_ms:
-            # Find all numeric columns for imaging attributes that are not coordinate-related
-            numeric_cols = [col for col in self.MSobj.data.select_dtypes(include='number').columns
-                            if col not in ['Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)']]
-            # Ensure current color_by is first in drop down
-            color_by_default = self.MSobj.color_by
-            color_options = [{'label': color_by_default, 'value': color_by_default}]
-            color_options += [{'label': col, 'value': col} for col in numeric_cols if col != color_by_default]
-            # Ensure current size_by is first in drop down
-            size_by_default = self.MSobj.size_by
-            size_options = [{'label': size_by_default, 'value': size_by_default}]
-            size_options += [{'label': col, 'value': col} for col in numeric_cols if col != size_by_default]
-
-            layout_children += [
+        layout_children += [
                 html.Label("Color points by:"),
                 dcc.Dropdown(
                     id='color-by-dropdown',
@@ -128,11 +168,10 @@ class DataViewer:
                 html.Label("Time Range:"),
                 dcc.RangeSlider(
                     id='time-range-slider',
-                    min=min_idx,
-                    max=max_idx,
-                    value=[min_idx, max_idx],
-                    marks={i: str(sorted_times[i].date()) for i in
-                           range(0, len(sorted_times), max(1, len(sorted_times)//5))} if len(sorted_times) > 0 else {},
+                    min=0,
+                    max=len(times_filtered) - 1,
+                    value=[0, len(times_filtered) - 1],
+                    marks=marks,
                     step=1,
                     allowCross=False
                 ),
@@ -158,9 +197,66 @@ class DataViewer:
                 Input('combined-3d-plot', 'relayoutData')
             )
             def update_combined_plot(color_by, size_by, time_range, relayout_data):
+                # NOTE: CHECKPOINT for callback - troubleshooting
+                print("Dash callback triggered")
+                # Consistently sort and reset index for times in the callback
+                sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().reset_index(drop=True)
+                x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
+                y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
+                z_range = [self.MSobj.data['Depth TVDSS (ft)'].min(), self.MSobj.data['Depth TVDSS (ft)'].max()]
+                has_well = self.well_objs is not None and len(self.well_objs) > 0
+
+                if not sorted_times.any() or len(sorted_times) == 0:
+                    well_traces = self.well_objs if has_well else []
+                    fig = go.Figure(data=well_traces)
+                    # Set layout to be consistent
+                    fig.update_layout(
+                        height=700,
+                        width=1000,
+                        scene=dict(
+                            xaxis_title="Easting (ft)",
+                            yaxis_title="Northing (ft)",
+                            zaxis_title="TVDSS (ft)",
+                            xaxis=dict(range=x_range, autorange=False),
+                            yaxis=dict(range=y_range, autorange=False),
+                            zaxis=dict(range=z_range, autorange='reversed'),
+                            aspectmode="manual",
+                            aspectratio=dict(
+                                x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0],
+                                                                  y_range[1] - y_range[0],
+                                                                  abs(z_range[1] - z_range[0])),
+                                y=(y_range[1] - y_range[0]) / max(x_range[1] - x_range[0],
+                                                                  y_range[1] - y_range[0],
+                                                                  abs(z_range[1] - z_range[0])),
+                                z=abs(z_range[1] - z_range[0]) / max(x_range[1] - x_range[0],
+                                                                     y_range[1] - y_range[0],
+                                                                     abs(z_range[1] - z_range[0]))
+                            )
+                        ),
+                        legend=dict(
+                            x=1.18,
+                            y=0.5,
+                            xanchor='left',
+                            yanchor='top',
+                            bordercolor="Black",
+                            borderwidth=1,
+                            bgcolor="white",
+                            font=dict(size=12)
+                        )
+                    )
+                    if relayout_data and 'scene.camera' in relayout_data:
+                        fig.update_layout(scene_camera=relayout_data['scene.camera'])
+                    return fig
+
                 start_idx, end_idx = time_range
+                start_idx = max(0, min(start_idx, len(sorted_times) - 1))
+                end_idx = max(0, min(end_idx, len(sorted_times) - 1))
                 start_time = sorted_times[min(start_idx, end_idx)]
                 end_time = sorted_times[max(start_idx, end_idx)]
+
+                # NOTE: CHECKPOINT for sliders - troubleshooting
+                print(f"Slider start_time: {start_time}")
+                print(f"Slider end_time: {end_time}")
 
                 # Update microseismic data
                 self.MSobj.set_colorby(color_by)
@@ -204,6 +300,10 @@ class DataViewer:
                 )
                 if relayout_data and 'scene.camera' in relayout_data:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
+                # NOTE: Checkpoint for traces - troubleshooting
+                print("Microseismic trace:", ms_traces)
+                print("Well traces:", well_traces)
+                print("Figure data:", fig.data)
                 return fig
         else:
             @app.callback(
@@ -248,7 +348,14 @@ class DataViewer:
                 # Preserve camera settings
                 if relayout_data and 'scene.camera' in relayout_data:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
+
+                # NOTE: Checkpoint for traces - troubleshooting
+                print("Figure data:", fig.data)
                 return fig
+
+        # NOTE: Checkpoint for sliders - troubleshooting
+        print(f"Data min time: {self.MSobj.data['Origin DateTime'].min()}")
+        print(f"Data max time: {self.MSobj.data['Origin DateTime'].max()}")
 
         host = "127.0.0.1"
         port = 8050

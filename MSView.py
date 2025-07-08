@@ -1,11 +1,12 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 02-JUL-2025
+# Date last modified: 07-JUL-2025
 
 # Import needed libraries
 import pandas as pd
 import plotly.graph_objects as go
+import numpy as np
 
 
 class MSPlot():
@@ -206,18 +207,49 @@ class MSPlot():
         data = self.data
 
         df = data.copy()
+        df['Origin DateTime'] = pd.to_datetime(df['Origin DateTime'])
         df = df.sort_values(by='Origin DateTime')
+        sorted_times = df['Origin DateTime']
 
         # Filter data based on the start and stop times
-        if self.plot_start_time is None:
-            self.plot_start_time = df['Origin DateTime'].min()
 
-        if self.plot_end_time is None:
-            self.plot_end_time = df['Origin DateTime'].max()
+        # Sort all microseismic data by time
+        sorted_times = df['Origin DateTime']
+
+        # Determine start and end times
+        if self.plot_start_time is not None:
+            start_time = pd.to_datetime(self.plot_start_time)
+        else:
+            start_time = sorted_times.min() if len(sorted_times) > 0 else None
+
+        if self.plot_end_time is not None:
+            end_time = pd.to_datetime(self.plot_end_time)
+        else:
+            end_time = sorted_times.max() if len(sorted_times) > 0 else None
+
+        # Find indices for the selected range
+        start_idx = int(np.searchsorted(sorted_times, start_time, side='left'))
+        end_idx = int(np.searchsorted(sorted_times, end_time, side='right') - 1)
+
+        # Clamp indices to valid range
+        start_idx = max(0, min(start_idx, len(sorted_times) - 1))
+        end_idx = max(0, min(end_idx, len(sorted_times) - 1))
 
         # Filter dataframe
-        df_filtered = df[(df['Origin DateTime'] >= self.plot_start_time) & (df['Origin DateTime']
-                                                                            <= self.plot_end_time)]
+        df_filtered = df[(sorted_times >= sorted_times[start_idx]) & (sorted_times <= sorted_times[end_idx])]
+
+        # NOTE: Print the number and a preview of events being plotted - troubleshooting
+        print(f"Number of microseismic events to plot: {len(df_filtered)}")
+        print(df_filtered[['Origin DateTime', 'Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)',
+                           self.size_by, self.color_by]].head(10))
+
+        # NOTE: Check for NaNs or empty arrays in the coordinates - troubleshooting
+        print("Easting NaNs:", df_filtered['Easting (ft)'].isna().sum())
+        print("Northing NaNs:", df_filtered['Northing (ft)'].isna().sum())
+        print("Depth NaNs:", df_filtered['Depth TVDSS (ft)'].isna().sum())
+        print("Easting unique:", df_filtered['Easting (ft)'].unique())
+        print("Northing unique:", df_filtered['Northing (ft)'].unique())
+        print("Depth unique:", df_filtered['Depth TVDSS (ft)'].unique())
 
         # Create the 3D scatter plot
         MSplot = go.Scatter3d(

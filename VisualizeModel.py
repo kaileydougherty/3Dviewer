@@ -201,14 +201,20 @@ class DataViewer:
             # Add input fields for x-, y-, z- ranges
             html.Div([
                 html.Label("X Range: "),
-                dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}", style={'width': '100px'}),
-                dcc.Input(id='x-max', type='number', placeholder=f"{x_range[1]:.2f}", style={'width': '100px'}),
+                dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}", style={'width': '100px'},
+                          debounce=True),
+                dcc.Input(id='x-max', type='number', placeholder=f"{x_range[1]:.2f}", style={'width': '100px'},
+                          debounce=True),
                 html.Label("Y Range: ", style={'marginLeft': '20px'}),
-                dcc.Input(id='y-min', type='number', placeholder=f"{y_range[0]:.2f}", style={'width': '100px'}),
-                dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}", style={'width': '100px'}),
+                dcc.Input(id='y-min', type='number', placeholder=f"{y_range[0]:.2f}", style={'width': '100px'},
+                          debounce=True),
+                dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}", style={'width': '100px'},
+                          debounce=True),
                 html.Label("Z Range: ", style={'marginLeft': '20px'}),
-                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}", style={'width': '100px'}),
-                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}", style={'width': '100px'}),
+                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}", style={'width': '100px'},
+                          debounce=True),
+                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}", style={'width': '100px'},
+                          debounce=True),
             ], style={'margin': '10px 0'}),
 
             dcc.Graph(
@@ -234,12 +240,17 @@ class DataViewer:
                 Input('y-max', 'value'),
                 Input('z-min', 'value'),
                 Input('z-max', 'value'),
-                Input('colorscale-dropdown', 'value'),  # New input for colorscale
+                Input('colorscale-dropdown', 'value'),
             )
             def update_combined_plot(color_by, size_by, time_range, relayout_data, x_min, x_max,
                                      y_min, y_max, z_min, z_max, colorscale):
+
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
+                print(f"x_min: {x_min}, x_max: {x_max}, y_min: {y_min}, y_max: {y_max}, z_min: {z_min}, z_max: {z_max}")
+                print(f"color_by: {color_by}, size_by: {size_by}, colorscale: {colorscale}")
+                print(f"time_range: {time_range}, relayout_data: {relayout_data}")
+
                 # Consistently sort and reset index for times in the callback
                 sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().reset_index(drop=True)
                 x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
@@ -304,7 +315,7 @@ class DataViewer:
                 self.MSobj.set_sizeby(size_by)
                 self.MSobj.set_start_time(str(start_time))
                 self.MSobj.set_end_time(str(end_time))
-                self.MSobj.set_colorscale(colorscale)  # Update colorscale
+                self.MSobj.set_colorscale(colorscale)
                 ms_traces = [self.MSobj.create_plot()]
                 well_traces = self.well_objs if has_well else []
 
@@ -316,6 +327,9 @@ class DataViewer:
                 z_range_plot = [z_min if z_min is not None else z_range[0],
                                 z_max if z_max is not None else z_range[1]]
 
+                # Reverse z-axis to align with TVDSS convention
+                z_range_plot = sorted(z_range_plot, reverse=True)  # allows user input in dash app
+
                 fig = go.Figure(data=ms_traces + well_traces)
                 fig.update_layout(
                     height=700,
@@ -326,7 +340,7 @@ class DataViewer:
                         zaxis_title="TVDSS (ft)",
                         xaxis=dict(range=x_range_plot, autorange=False),
                         yaxis=dict(range=y_range_plot, autorange=False),
-                        zaxis=dict(range=z_range_plot, autorange='reversed'),
+                        zaxis=dict(range=z_range_plot, autorange=False),
                         aspectmode="manual",
                         aspectratio=dict(
                             x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0],
@@ -348,6 +362,9 @@ class DataViewer:
                         font=dict(size=12)
                     )
                 )
+                fig.layout.uirevision = None
+
+                # Only update camera from relayout_data
                 if relayout_data and 'scene.camera' in relayout_data:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
 

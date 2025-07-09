@@ -122,6 +122,12 @@ class DataViewer:
             size_options = [{'label': size_by_default, 'value': size_by_default}]
             size_options += [{'label': col, 'value': col} for col in numeric_cols if col != size_by_default]
 
+            colorbar_min_placeholder = None
+            colorbar_max_placeholder = None
+            if color_by_default in df.columns:
+                colorbar_min_placeholder = float(df_filtered[color_by_default].min())
+                colorbar_max_placeholder = float(df_filtered[color_by_default].max())
+
         elif has_well and not has_ms:
             # If no microseismic object, use well data for axes ranges
             # Assume well_objs is a list of traces with x/y/z attributes
@@ -174,12 +180,16 @@ class DataViewer:
                 html.Label("Colorbar Range:", style={'marginRight': '8px'}),
                 dcc.Input(
                     id='colorbar-min', type='number',
-                    placeholder="Auto min", style={'width': '100px', 'marginRight': '4px'},
+                    placeholder=f"{colorbar_min_placeholder:.2f}" if colorbar_min_placeholder is not None else
+                    "Auto min",
+                    style={'width': '100px', 'marginRight': '4px'},
                     debounce=True
                 ),
                 dcc.Input(
                     id='colorbar-max', type='number',
-                    placeholder="Auto max", style={'width': '100px', 'marginRight': '20px'},
+                    placeholder=f"{colorbar_max_placeholder:.2f}" if colorbar_max_placeholder is not None else
+                    "Auto max",
+                    style={'width': '100px', 'marginRight': '20px'},
                     debounce=True
                 ),
             ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),

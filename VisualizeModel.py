@@ -178,14 +178,17 @@ class DataViewer:
                 style={'width': '96%', 'margin': '0 auto'}
             ),
 
-            # Add input fields for x- and y- ranges
+            # Add input fields for x-, y-, z- ranges
             html.Div([
-                html.Label("X Range:"),
+                html.Label("X Range: "),
                 dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}", style={'width': '100px'}),
                 dcc.Input(id='x-max', type='number', placeholder=f"{x_range[1]:.2f}", style={'width': '100px'}),
-                html.Label("Y Range:", style={'marginLeft': '20px'}),
+                html.Label("Y Range: ", style={'marginLeft': '20px'}),
                 dcc.Input(id='y-min', type='number', placeholder=f"{y_range[0]:.2f}", style={'width': '100px'}),
                 dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}", style={'width': '100px'}),
+                html.Label("Z Range: ", style={'marginLeft': '20px'}),
+                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}", style={'width': '100px'}),
+                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}", style={'width': '100px'}),
             ], style={'margin': '10px 0'}),
         ]
 
@@ -211,8 +214,11 @@ class DataViewer:
                 Input('x-max', 'value'),
                 Input('y-min', 'value'),
                 Input('y-max', 'value'),
+                Input('z-min', 'value'),
+                Input('z-max', 'value'),
             )
-            def update_combined_plot(color_by, size_by, time_range, relayout_data, x_min, x_max, y_min, y_max):
+            def update_combined_plot(color_by, size_by, time_range, relayout_data, x_min, x_max,
+                                     y_min, y_max, z_min, z_max):
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
                 # Consistently sort and reset index for times in the callback
@@ -287,6 +293,8 @@ class DataViewer:
                                 x_max if x_max is not None else x_range[1]]
                 y_range_plot = [y_min if y_min is not None else y_range[0],
                                 y_max if y_max is not None else y_range[1]]
+                z_range_plot = [z_min if z_min is not None else z_range[0],
+                                z_max if z_max is not None else z_range[1]]
 
                 fig = go.Figure(data=ms_traces + well_traces)
                 fig.update_layout(
@@ -298,7 +306,7 @@ class DataViewer:
                         zaxis_title="TVDSS (ft)",
                         xaxis=dict(range=x_range_plot, autorange=False),
                         yaxis=dict(range=y_range_plot, autorange=False),
-                        zaxis=dict(range=z_range, autorange='reversed'),
+                        zaxis=dict(range=z_range_plot, autorange='reversed'),
                         aspectmode="manual",
                         aspectratio=dict(
                             x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0],

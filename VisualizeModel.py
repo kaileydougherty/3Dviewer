@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 08-JUL-2025
+# Date last modified: 09-JUL-2025
 
 # Import needed libraries
 import dash
@@ -175,8 +175,18 @@ class DataViewer:
                     step=1,
                     allowCross=False
                 ),
-                style={'width': '98%', 'margin': '0 auto'}
-            )
+                style={'width': '96%', 'margin': '0 auto'}
+            ),
+
+            # Add input fields for x- and y- ranges
+            html.Div([
+                html.Label("X Range:"),
+                dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}", style={'width': '100px'}),
+                dcc.Input(id='x-max', type='number', placeholder=f"{x_range[1]:.2f}", style={'width': '100px'}),
+                html.Label("Y Range:", style={'marginLeft': '20px'}),
+                dcc.Input(id='y-min', type='number', placeholder=f"{y_range[0]:.2f}", style={'width': '100px'}),
+                dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}", style={'width': '100px'}),
+            ], style={'margin': '10px 0'}),
         ]
 
         layout_children.append(
@@ -196,9 +206,13 @@ class DataViewer:
                 Input('color-by-dropdown', 'value'),
                 Input('size-by-dropdown', 'value'),
                 Input('time-range-slider', 'value'),
-                Input('combined-3d-plot', 'relayoutData')
+                Input('combined-3d-plot', 'relayoutData'),
+                Input('x-min', 'value'),
+                Input('x-max', 'value'),
+                Input('y-min', 'value'),
+                Input('y-max', 'value'),
             )
-            def update_combined_plot(color_by, size_by, time_range, relayout_data):
+            def update_combined_plot(color_by, size_by, time_range, relayout_data, x_min, x_max, y_min, y_max):
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
                 # Consistently sort and reset index for times in the callback
@@ -268,6 +282,12 @@ class DataViewer:
                 ms_traces = [self.MSobj.create_plot()]
                 well_traces = self.well_objs if has_well else []
 
+                # Use user input if provided, else use auto-calculated defaults
+                x_range_plot = [x_min if x_min is not None else x_range[0],
+                                x_max if x_max is not None else x_range[1]]
+                y_range_plot = [y_min if y_min is not None else y_range[0],
+                                y_max if y_max is not None else y_range[1]]
+
                 fig = go.Figure(data=ms_traces + well_traces)
                 fig.update_layout(
                     height=700,
@@ -276,8 +296,8 @@ class DataViewer:
                         xaxis_title="Easting (ft)",
                         yaxis_title="Northing (ft)",
                         zaxis_title="TVDSS (ft)",
-                        xaxis=dict(range=x_range, autorange=False),
-                        yaxis=dict(range=y_range, autorange=False),
+                        xaxis=dict(range=x_range_plot, autorange=False),
+                        yaxis=dict(range=y_range_plot, autorange=False),
                         zaxis=dict(range=z_range, autorange='reversed'),
                         aspectmode="manual",
                         aspectratio=dict(

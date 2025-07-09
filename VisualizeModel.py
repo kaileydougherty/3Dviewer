@@ -146,7 +146,7 @@ class DataViewer:
         layout_children = [
             html.H1("Microseismic and Well Trajectory Viewer"),
 
-            # Group color-by and colorscale dropdowns in a flex row
+            # Group color-by, colorscale, and colorbar range dropdowns in a flex row
             html.Div([
                 html.Label("Color points by:", style={'marginRight': '8px'}),
                 dcc.Dropdown(
@@ -169,7 +169,18 @@ class DataViewer:
                     ],
                     value=self.MSobj.color_scale,  # Default to the attribute from MSView
                     clearable=False,
-                    style={'width': '200px'}
+                    style={'width': '200px', 'marginRight': '20px'}
+                ),
+                html.Label("Colorbar Range:", style={'marginRight': '8px'}),
+                dcc.Input(
+                    id='colorbar-min', type='number',
+                    placeholder="Auto min", style={'width': '100px', 'marginRight': '4px'},
+                    debounce=True
+                ),
+                dcc.Input(
+                    id='colorbar-max', type='number',
+                    placeholder="Auto max", style={'width': '100px', 'marginRight': '20px'},
+                    debounce=True
                 ),
             ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
 
@@ -226,7 +237,7 @@ class DataViewer:
 
         app.layout = html.Div(layout_children)
 
-        # Callback only for microseismic data - range slider and color-by, size-by dropdowns
+        # Callback only for microseismic data
         if has_ms:
             @app.callback(
                 Output('combined-3d-plot', 'figure'),
@@ -241,9 +252,13 @@ class DataViewer:
                 Input('z-min', 'value'),
                 Input('z-max', 'value'),
                 Input('colorscale-dropdown', 'value'),
+                Input('colorbar-min', 'value'),
+                Input('colorbar-max', 'value'),
             )
-            def update_combined_plot(color_by, size_by, time_range, relayout_data, x_min, x_max,
-                                     y_min, y_max, z_min, z_max, colorscale):
+            def update_combined_plot(
+                color_by, size_by, time_range, relayout_data, x_min, x_max,
+                y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max
+            ):
 
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
@@ -316,6 +331,11 @@ class DataViewer:
                 self.MSobj.set_start_time(str(start_time))
                 self.MSobj.set_end_time(str(end_time))
                 self.MSobj.set_colorscale(colorscale)
+                # Set colorbar range if both min and max are provided, else None for auto
+                if colorbar_min is not None and colorbar_max is not None:
+                    self.MSobj.set_colorbar_range([colorbar_min, colorbar_max])
+                else:
+                    self.MSobj.set_colorbar_range(None)
                 ms_traces = [self.MSobj.create_plot()]
                 well_traces = self.well_objs if has_well else []
 

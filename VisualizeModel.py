@@ -146,23 +146,43 @@ class DataViewer:
         layout_children = [
             html.H1("Microseismic and Well Trajectory Viewer"),
 
-            html.Label("Color points by:"),
-            dcc.Dropdown(
-                id='color-by-dropdown',
-                options=color_options,
-                value=color_by_default,
-                clearable=False,
-                style={'width': '300px'}
-            ),
+            # Group color-by and colorscale dropdowns in a flex row
+            html.Div([
+                html.Label("Color points by:", style={'marginRight': '8px'}),
+                dcc.Dropdown(
+                    id='color-by-dropdown',
+                    options=color_options,
+                    value=color_by_default,
+                    clearable=False,
+                    style={'width': '200px', 'marginRight': '20px'}
+                ),
+                html.Label("Colorscale:", style={'marginRight': '8px'}),
+                dcc.Dropdown(
+                    id='colorscale-dropdown',
+                    options=[
+                        {'label': 'Viridis', 'value': 'Viridis'},
+                        {'label': 'Cividis', 'value': 'Cividis'},
+                        {'label': 'Plasma', 'value': 'Plasma'},
+                        {'label': 'Inferno', 'value': 'Inferno'},
+                        {'label': 'Magma', 'value': 'Magma'},
+                        {'label': 'Rainbow', 'value': 'Rainbow'}
+                    ],
+                    value=self.MSobj.color_scale,  # Default to the attribute from MSView
+                    clearable=False,
+                    style={'width': '200px'}
+                ),
+            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
 
-            html.Label("Size points by:"),
-            dcc.Dropdown(
-                id='size-by-dropdown',
-                options=size_options,
-                value=size_by_default,
-                clearable=False,
-                style={'width': '300px'}
-            ),
+            html.Div([
+                html.Label("Size points by:", style={'marginRight': '8px'}),
+                dcc.Dropdown(
+                    id='size-by-dropdown',
+                    options=size_options,
+                    value=size_by_default,
+                    clearable=False,
+                    style={'width': '200px', 'marginRight': '20px'}
+                )
+            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
 
             html.Label("Time Range:"),
             html.Div(
@@ -190,15 +210,13 @@ class DataViewer:
                 dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}", style={'width': '100px'}),
                 dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}", style={'width': '100px'}),
             ], style={'margin': '10px 0'}),
-        ]
 
-        layout_children.append(
             dcc.Graph(
                 id='combined-3d-plot',
                 figure=go.Figure(),
                 style={'height': '600px', 'width': '90%'}
             )
-        )
+        ]
 
         app.layout = html.Div(layout_children)
 
@@ -216,9 +234,10 @@ class DataViewer:
                 Input('y-max', 'value'),
                 Input('z-min', 'value'),
                 Input('z-max', 'value'),
+                Input('colorscale-dropdown', 'value'),  # New input for colorscale
             )
             def update_combined_plot(color_by, size_by, time_range, relayout_data, x_min, x_max,
-                                     y_min, y_max, z_min, z_max):
+                                     y_min, y_max, z_min, z_max, colorscale):
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
                 # Consistently sort and reset index for times in the callback
@@ -285,6 +304,7 @@ class DataViewer:
                 self.MSobj.set_sizeby(size_by)
                 self.MSobj.set_start_time(str(start_time))
                 self.MSobj.set_end_time(str(end_time))
+                self.MSobj.set_colorscale(colorscale)  # Update colorscale
                 ms_traces = [self.MSobj.create_plot()]
                 well_traces = self.well_objs if has_well else []
 
@@ -330,10 +350,12 @@ class DataViewer:
                 )
                 if relayout_data and 'scene.camera' in relayout_data:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
+
                 # NOTE: Checkpoint for traces - troubleshooting
                 print("Microseismic trace:", ms_traces)
                 print("Well traces:", well_traces)
                 print("Figure data:", fig.data)
+
                 return fig
         else:
             @app.callback(

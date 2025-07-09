@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 07-JUL-2025
+# Date last modified: 09-JUL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -25,6 +25,9 @@ class MSPlot():
 
     color_scale : str
         The color scale used for the visualization. Default is 'Viridis'.
+
+    colorbar_range : list of int or None
+        The range for the colorbar. If not set, the range will be determined automatically based on color_by.
 
     size_by : str
         The attribute used to determine the size of each plot point. Default is 'Brune Magnitude'.
@@ -96,6 +99,10 @@ class MSPlot():
         color_scale : str, optional
             The color scale for the visualization. Default is 'Viridis'.
 
+        colorbar_range : list of int or None, optional
+            The range for the colorbar. If not set, the range will be determined automatically based on color_by.
+            Default is None.
+
         size_by : str, optional
             The attribute used for determining the size of the plot points. Default is 'Brune Magnitude'.
 
@@ -114,6 +121,7 @@ class MSPlot():
         self.MScatalog = None
         self.color_by = 'Stage'
         self.color_scale = 'Viridis'
+        self.colorbar_range = None
         self.size_by = 'Brune Magnitude'
         self.size_range = [10, 100]
         self.plot_start_time = None
@@ -125,6 +133,9 @@ class MSPlot():
 
     def set_colorscale(self, color_scale):
         self.color_scale = color_scale
+
+    def set_colorbar_range(self, color_range):
+        self.colorbar_range = color_range
 
     def set_sizeby(self, size_by):
         self.size_by = size_by
@@ -243,13 +254,14 @@ class MSPlot():
         print(df_filtered[['Origin DateTime', 'Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)',
                            self.size_by, self.color_by]].head(10))
 
-        # NOTE: Check for NaNs or empty arrays in the coordinates - troubleshooting
-        print("Easting NaNs:", df_filtered['Easting (ft)'].isna().sum())
-        print("Northing NaNs:", df_filtered['Northing (ft)'].isna().sum())
-        print("Depth NaNs:", df_filtered['Depth TVDSS (ft)'].isna().sum())
-        print("Easting unique:", df_filtered['Easting (ft)'].unique())
-        print("Northing unique:", df_filtered['Northing (ft)'].unique())
-        print("Depth unique:", df_filtered['Depth TVDSS (ft)'].unique())
+        # Determine colorbar range
+        # Check if the user inputted a tuple of length 2
+        if self.colorbar_range and len(self.colorbar_range) == 2:
+            cmin, cmax = self.colorbar_range
+        # If not, use auto-settings based on color_by feature
+        else:
+            cmin = df_filtered[self.color_by].min()
+            cmax = df_filtered[self.color_by].max()
 
         # Create the 3D scatter plot
         MSplot = go.Scatter3d(
@@ -271,8 +283,8 @@ class MSPlot():
                 size=abs(df_filtered[self.size_by]) * 100,  # Set size
                 color=df_filtered[self.color_by],  # Set which column to color by
                 colorscale=self.color_scale,  # Set color scale
-                cmin=df_filtered[self.color_by].min(),  # Set min
-                cmax=df_filtered[self.color_by].max(),  # Set max
+                cmin=cmin,  # Set min
+                cmax=cmax,  # Set max
                 colorbar=dict(
                     title=f'{self.color_by}',
                     x=1.05,

@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 09-JUL-2025
+# Date last modified: 10-JUL-2025
 
 # Import needed libraries
 import dash
@@ -216,27 +216,40 @@ class DataViewer:
                     step=1,
                     allowCross=False
                 ),
-                style={'width': '96%', 'margin': '0 auto'}
+                style={'width': '92%', 'margin': '20px auto', 'padding': '20px'}
             ),
 
-            # Add input fields for x-, y-, z- ranges
+            # Add input fields for x-, y-, z- ranges and aspect ratio mode
             html.Div([
                 html.Label("X Range: "),
-                dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}", style={'width': '100px'},
-                          debounce=True),
-                dcc.Input(id='x-max', type='number', placeholder=f"{x_range[1]:.2f}", style={'width': '100px'},
-                          debounce=True),
+                dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}",
+                          style={'width': '100px'}, debounce=True),
+                dcc.Input(id='x-max', type='number', placeholder=f"{x_range[1]:.2f}",
+                          style={'width': '100px'}, debounce=True),
                 html.Label("Y Range: ", style={'marginLeft': '20px'}),
-                dcc.Input(id='y-min', type='number', placeholder=f"{y_range[0]:.2f}", style={'width': '100px'},
-                          debounce=True),
-                dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}", style={'width': '100px'},
-                          debounce=True),
+                dcc.Input(id='y-min', type='number', placeholder=f"{y_range[0]:.2f}",
+                          style={'width': '100px'}, debounce=True),
+                dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}",
+                          style={'width': '100px'}, debounce=True),
                 html.Label("Z Range: ", style={'marginLeft': '20px'}),
-                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}", style={'width': '100px'},
-                          debounce=True),
-                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}", style={'width': '100px'},
-                          debounce=True),
-            ], style={'margin': '10px 0'}),
+                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}",
+                          style={'width': '100px'}, debounce=True),
+                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}",
+                          style={'width': '100px'}, debounce=True),
+                html.Label("Aspect Ratio Mode:", style={'marginLeft': '20px', 'marginRight': '8px'}),
+                dcc.Dropdown(
+                    id='aspectmode-dropdown',
+                    options=[
+                        {'label': 'Manual', 'value': 'manual'},
+                        {'label': 'Cube', 'value': 'cube'},
+                        {'label': 'Data', 'value': 'data'},
+                        {'label': 'Auto', 'value': 'auto'}
+                    ],
+                    value='manual',
+                    clearable=False,
+                    style={'width': '150px', 'marginRight': '20px'}
+                ),
+            ], style={'margin': '10px 0', 'display': 'flex', 'alignItems': 'center'}),
 
             dcc.Graph(
                 id='combined-3d-plot',
@@ -264,10 +277,12 @@ class DataViewer:
                 Input('colorscale-dropdown', 'value'),
                 Input('colorbar-min', 'value'),
                 Input('colorbar-max', 'value'),
+                Input('aspectmode-dropdown', 'value'),
             )
             def update_combined_plot(
                 color_by, size_by, time_range, relayout_data, x_min, x_max,
-                y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max
+                y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max,
+                aspect_mode
             ):
 
                 # NOTE: CHECKPOINT for callback - troubleshooting
@@ -371,7 +386,7 @@ class DataViewer:
                         xaxis=dict(range=x_range_plot, autorange=False),
                         yaxis=dict(range=y_range_plot, autorange=False),
                         zaxis=dict(range=z_range_plot, autorange=False),
-                        aspectmode="manual",
+                        aspectmode=aspect_mode,  # Use the selected aspect mode
                         aspectratio=dict(
                             x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0],
                                                               y_range[1] - y_range[0], abs(z_range[1] - z_range[0])),

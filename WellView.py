@@ -7,6 +7,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import random
 
 
 class WellPlot():
@@ -30,6 +31,9 @@ class WellPlot():
         Loads multiple well trajectory CSV files into the data attribute. Each CSV file
         should contain columns for Referenced Easting (ft), Referenced Northing (ft),
         and True Vertical Depth (ft).
+
+    set_colors(colors)
+        Sets the colors for the well trajectories. Expects a list of color strings.
 
     create_plot()
         Generates a list of Plotly Scatter3d traces for visualizing the well trajectories
@@ -90,38 +94,43 @@ class WellPlot():
             Each well is color-coded and plotted using its respective coordinates.
         """
         well_traces = []
-
         df = self.data
 
-        # Check if colors are passed
-        if self.colors is not None:
-            colors = self.colors
+        # Use user colors if entered, or default to palette from Plotly
+        user_colors = self.colors if self.colors is not None else []
+        palette = px.colors.qualitative.Plotly
+        if len(df) > len(palette):
+            palette = px.colors.qualitative.Alphabet
 
-        else:
-            colors = px.colors.qualitative.Plotly  # 10-color palette
-            if len(df) > len(colors):
-                # If more wells than colors, extend colors using repeat or other methods
-                colors = px.colors.qualitative.Alphabet  # more unique colors
+        # Build a color list for all wells
+        color_list = []
+        used_colors = set(user_colors)
+        palette_unused = [c for c in palette if c not in used_colors]
+
+        for i, well in enumerate(self.data.keys()):
+            if i < len(user_colors):
+                color_list.append(user_colors[i])
+            else:
+                # Pick a random unused color or fallback to palette cycling
+                if palette_unused:
+                    color = palette_unused.pop(random.randrange(len(palette_unused)))
+                else:
+                    color = palette[i % len(palette)]
+                color_list.append(color)
 
         # Add each trace to the well plot
         for i, (well, df) in enumerate(self.data.items()):
-            # Generate a color for the current well
-            nxtcolor = colors[i] if i < len(colors) else colors[i % len(colors)]
-            # Create a 3D scatter trace for the current well
             well_trace = go.Scatter3d(
                 x=df['Referenced Easting (ft)'],
                 y=df['Referenced Northing (ft)'],
                 z=df['TVDSS (ft)'],
                 mode='lines',
                 line=dict(
-                    color=nxtcolor,
+                    color=color_list[i],
                     width=3
                 ),
                 name=f'{well} Well'
             )
-
-            # Append the trace to the well_traces list
             well_traces.append(well_trace)
 
-        # Return the well log plot object (list of traces)
         return well_traces

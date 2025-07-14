@@ -22,15 +22,27 @@ class DataViewer:
     MSobj : object, optional
         An object representing microseismic data, expected to have 'data',
         'set_start_time', 'set_end_time', and 'create_plot' attributes/methods.
+
     well_objs : list, optional
         A list of Plotly-compatible 3D trace objects representing well trajectories.
+
     plot_objects : list
         A combined list of all Plotly trace objects to be displayed, including well and seismic traces.
+
+    _last_fig : object
+        Stores the last generated Plotly figure for reference to preserve user settings in dynamic updates.
+
+    title : str, optional
+        The title of the visualization, default is 'Seismic and Well Trajectory Viewer'.
 
     Methods
     -------
     __init__(self, MS_obj=None, well_objs=None)
         Initialize the DataViewer with optional well and microseismic data sources.
+
+    set_title(title)
+        Set the title for the visualization. Default is 'Seismic and Well Trajectory Viewer.'
+
     run_dash_app()
         Runs the Dash web application for visualizing microseismic and well data.
         Provides interactive controls for filtering by time, color, size, axis ranges, and aspect ratio.
@@ -44,7 +56,8 @@ class DataViewer:
         ----------
         MS_obj : object, optional
             A microseismic plotting object with a pandas 'data' attribute and methods:
-            'set_start_time', 'set_end_time', and 'create_plot'.
+            'set_start_time', 'set_end_time', and 'create_plot.'
+
         well_objs : list, optional
             A list of Plotly 3D trace objects providing well trajectories.
         """
@@ -52,10 +65,14 @@ class DataViewer:
         self.well_objs = well_objs if well_objs is not None else []
         self.plot_objects = []
         self._last_fig = None
+        self.title = 'Seismic and Well Trajectory Viewer'
 
         if well_objs is not None:
             for obj in well_objs:
                 self.plot_objects.append(obj)
+
+    def set_title(self, title):
+        self.title = title
 
     def run_dash_app(self):
         """
@@ -172,7 +189,7 @@ class DataViewer:
         app = dash.Dash(__name__)
 
         layout_children = [
-            html.H1("Microseismic and Well Trajectory Viewer"),
+            html.H1(self.title, style={'textAlign': 'center', 'marginBottom': '30px'}),
 
             # Group color-by, colorscale, and colorbar range dropdowns in a flex row
             html.Div([

@@ -22,7 +22,7 @@ class MSPlot():
         - File Name: The name of the event file.
         - Easting (ft): The Easting coordinate of the event in feet.
         - Northing (ft): The Northing coordinate of the event in feet.
-        - Depth TVDSS (ft): The TVDSS depth of the event in feet.
+        - TVDSS (ft): The true vertical depth subseaof the event in feet.
         - Origin DateTime: A combined datetime column of the origin time in UTC in 'YYYY-MM-DD HH:MM:ss.sss'
         format (str).
         - Brune Magnitude: The Brune magnitude of the event (float).
@@ -98,7 +98,7 @@ class MSPlot():
             - File Name: The name of the event file.
             - Easting (ft): The Easting coordinate of the event in feet.
             - Northing (ft): The Northing coordinate of the event in feet.
-            - Depth TVDSS (ft): The depth of the event in feet.
+            - TVDSS (ft): The true vertical depth subsea of the event in feet.
             - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss
             format (str).
             - Brune Magnitude: The Brune magnitude of the event (float).
@@ -169,7 +169,7 @@ class MSPlot():
             - File Name: The name of the event file.
             - Easting (ft): The Easting coordinate of the event in feet.
             - Northing (ft): The Northing coordinate of the event in feet.
-            - Depth TVDSS (ft): The depth of the event in feet.
+            - TVDSS (ft): The true vertical depth subsea of the event in feet.
             - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss
             format (str).
             - Brune Magnitude: The Brune magnitude of the event (float).
@@ -178,7 +178,7 @@ class MSPlot():
         Returns
         -------
         bool
-            Returns True if the CSV file was loaded successfully.
+            True if the file is successfully loaded, False otherwise.
         """
 
         # Load the CSV file
@@ -247,7 +247,7 @@ class MSPlot():
         MSplot = go.Scatter3d(
             x=df_filtered['Easting (ft)'],  # X-axis: Easting
             y=df_filtered['Northing (ft)'],  # Y-axis: Northing
-            z=df_filtered['Depth TVDSS (ft)'],  # Z-axis: Depth
+            z=df_filtered['TVDSS (ft)'],  # Z-axis: Depth
             text=df_filtered.apply(
                 lambda row: (
                     f"File: {row['File Name']}<br>"

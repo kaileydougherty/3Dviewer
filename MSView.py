@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 09-JUL-2025
+# Date last modified: 14-JUL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -12,13 +12,21 @@ import numpy as np
 class MSPlot():
     """
     A class for loading a microseismic event CSV file and creating a Plotly plotting object to visualize
-    these events in a 3D space.
+    these events in a 3D Dash space.
 
     Attributes
     ----------
     MScatalog : str
         The relative path to the CSV file containing the microseismic data.
-        This dataset must contain the following column names to be compatible:
+        This dataset must at least contain the following column names to be compatible:
+        - File Name: The name of the event file.
+        - Easting (ft): The Easting coordinate of the event in feet.
+        - Northing (ft): The Northing coordinate of the event in feet.
+        - Depth TVDSS (ft): The TVDSS depth of the event in feet.
+        - Origin DateTime: A combined datetime column of the origin time in UTC in 'YYYY-MM-DD HH:MM:ss.sss'
+        format (str).
+        - Brune Magnitude: The Brune magnitude of the event (float).
+        - Stage: The stage identifier (int).
 
     color_by : str
         The attribute used to determine the color of each plot point. Default is 'Stage'.
@@ -46,12 +54,8 @@ class MSPlot():
 
     Methods
     -------
-    create_plot(self):
-        Creates an interactive 3D scatter plot object for seismic data.
-
-    load_csv(self, MScatalog):
-        Loads and parses the data from the file specified by the MScatalog attribute,
-        returning a Pandas DataFrame with structured data.
+    __init__():
+        Initializes the MSViewer with default parameters.
 
     set_colorby(color_by):
         Sets the attribute to be used for color encoding the plot points.
@@ -73,6 +77,13 @@ class MSPlot():
 
     set_title(title):
         Sets the title for the plot.
+
+    load_csv(self, MScatalog):
+        Loads and parses the data from the file specified by the MScatalog attribute,
+        returning a Pandas DataFrame with structured data.
+
+    create_plot(self):
+        Creates an interactive 3D scatter plot object for seismic data.
     """
 
     def __init__(self):
@@ -114,9 +125,6 @@ class MSPlot():
 
         plot_end_time : str, optional
             The end time for the plot's time range. Default is None.
-
-        title : str, optional
-            The title for the plot. Default is '3D Bubble Chart of Cumulative Seismic Entries'.
         """
         self.MScatalog = None
         self.color_by = 'Stage'
@@ -126,7 +134,6 @@ class MSPlot():
         self.size_range = [10, 100]
         self.plot_start_time = None
         self.plot_end_time = None
-        self.title = '3D Bubble Chart of Cumulative Seismic Entries'
 
     def set_colorby(self, color_by):
         self.color_by = color_by
@@ -149,9 +156,6 @@ class MSPlot():
     def set_end_time(self, plot_end_time):
         self.plot_end_time = plot_end_time
 
-    def set_title(self, title):
-        self.title = title
-
     def load_csv(self, MScatalog):
         """
         Load the dataset.
@@ -161,7 +165,7 @@ class MSPlot():
         ----------
         MScatalog : str
             The relative path to the CSV file containing the microseismic data.
-            This dataset must contain the following columns to be compatible:
+            This dataset must contain at least the following columns to be compatible:
             - File Name: The name of the event file.
             - Easting (ft): The Easting coordinate of the event in feet.
             - Northing (ft): The Northing coordinate of the event in feet.
@@ -173,16 +177,8 @@ class MSPlot():
 
         Returns
         -------
-        pandas.DataFrame
-            A Pandas DataFrame containing the following columns:
-            - File Name: The name of the event file.
-            - Easting (ft): The Easting coordinate of the event in feet.
-            - Northing (ft): The Northing coordinate of the event in feet.
-            - Depth TVDSS (ft): The depth of the event in feet.
-            - Origin DateTime: A combined datetime column of the origin time in UTC in YYYY-MM-DD HH:MM:ss.sss
-            format (str).
-            - Brune Magnitude: The Brune magnitude of the event (float).
-            - Stage: The stage identifier (int).
+        bool
+            Returns True if the CSV file was loaded successfully.
         """
 
         # Load the CSV file
@@ -194,26 +190,15 @@ class MSPlot():
 
     def create_plot(self):
         """
-        Creates an interactive 3D scatter plot object for seismic data.
+        Creates an interactive 3D scatter plot for the filtered seismic data.
 
-        Generates data for a 3D scatter plot where each point represents a seismic event,
-        with `Easting (ft)`, `Northing (ft)`, and 'Depth TVDSS (ft)' as the coordinates. The points are colored
-        and sized based on the `Brune Magnitude` of each event.
-
-        The plot is interactive and includes hover text displaying the file name, stage, and
-        magnitude for each seismic event. The user can navigate through the different time frames
-        and explore how the seismic data evolves over time.
+        Filters the data by the specified time range and selected attributes, then generates a Plotly 3D scatter plot
+        object. Points are colored and sized according to user-selected attributes, with hover text for event details.
 
         Returns
         -------
         plotly.graph_objects.Figure
-            A Plotly figure object that can be displayed in a Jupyter notebook or other compatible environments.
-            The figure contains an interactive 3D scatter plot with a time-based animation slider.
-
-        Notes
-        -----
-        - The function currently only processes the first 100 rows of the input data (`data.iloc[:101]`),
-          which is meant for development purposes.
+            A Plotly figure object containing the interactive 3D scatter plot.
         """
         data = self.data
 
@@ -249,11 +234,6 @@ class MSPlot():
         # Filter dataframe
         df_filtered = df[(sorted_times >= sorted_times[start_idx]) & (sorted_times <= sorted_times[end_idx])]
 
-        # NOTE: Print the number and a preview of events being plotted - troubleshooting
-        print(f"Number of microseismic events to plot: {len(df_filtered)}")
-        print(df_filtered[['Origin DateTime', 'Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)',
-                           self.size_by, self.color_by]].head(10))
-
         # Determine colorbar range
         # Check if the user inputted a tuple of length 2
         if self.colorbar_range and len(self.colorbar_range) == 2:
@@ -283,8 +263,8 @@ class MSPlot():
                 size=abs(df_filtered[self.size_by]) * 100,  # Set size
                 color=df_filtered[self.color_by],  # Set which column to color by
                 colorscale=self.color_scale,  # Set color scale
-                cmin=cmin,  # Set min
-                cmax=cmax,  # Set max
+                cmin=cmin,  # Set min.
+                cmax=cmax,  # Set max.
                 colorbar=dict(
                     title=f'{self.color_by}',
                     x=1.05,
@@ -297,4 +277,5 @@ class MSPlot():
             name='Microseismic Events'
         )
 
+        # Return plotting object
         return MSplot

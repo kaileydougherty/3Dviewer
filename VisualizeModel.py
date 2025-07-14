@@ -232,9 +232,9 @@ class DataViewer:
                 dcc.Input(id='y-max', type='number', placeholder=f"{y_range[1]:.2f}",
                           style={'width': '100px'}, debounce=True),
                 html.Label("Z Range: ", style={'marginLeft': '20px'}),
-                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[0]:.2f}",
+                dcc.Input(id='z-min', type='number', placeholder=f"{z_range[1]:.2f}",
                           style={'width': '100px'}, debounce=True),
-                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[1]:.2f}",
+                dcc.Input(id='z-max', type='number', placeholder=f"{z_range[0]:.2f}",
                           style={'width': '100px'}, debounce=True),
                 html.Label("Aspect Ratio Mode:", style={'marginLeft': '20px', 'marginRight': '8px'}),
                 dcc.Dropdown(

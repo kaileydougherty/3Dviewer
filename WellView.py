@@ -1,7 +1,7 @@
 # Create a plotter to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 11-JUL-2025
+# Date last modified: 14-JUL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -12,7 +12,8 @@ import random
 
 class WellPlot():
     """
-    A class for loading and visualizing 3D well trajectory data using Plotly.
+    A class for loading well trajectory CSV files and creating Plotly plotting objects to visualize
+    these wells in a 3D Dash space.
 
     This class provides functionality to read one or more well trajectory CSV files
     and generate interactive 3D line plots for each well.
@@ -27,13 +28,15 @@ class WellPlot():
 
     Methods
     -------
-    load_csv(welltraj_files)
-        Loads multiple well trajectory CSV files into the data attribute. Each CSV file
-        should contain columns for Referenced Easting (ft), Referenced Northing (ft),
-        and True Vertical Depth (ft).
+    __init__()
+        Initializes the WellPlot class with an empty data dictionary and optional colors.
 
     set_colors(colors)
-        Sets the colors for the well trajectories. Expects a list of color strings.
+    Sets the colors for the well trajectories. Expects a list of color strings.
+
+    load_csv(welltraj_files)
+        Loads multiple well trajectory CSV files into the data attribute. Each CSV file
+        should contain columns for 'Easting (ft)', 'Northing (ft)', and 'TVDSS (ft).'
 
     create_plot()
         Generates a list of Plotly Scatter3d traces for visualizing the well trajectories
@@ -50,7 +53,14 @@ class WellPlot():
         self.colors = None  # Store user-defined colors
 
     def set_colors(self, colors):
-        """Set colors for wells. Expects a list of color strings."""
+        """
+        Set colors for wells. Expects a list of color strings.
+
+        Parameters
+        ----------
+        colors : list of str
+            List of color strings to assign to wells.
+        """
         self.colors = colors
 
     def load_csv(self, welltraj_files):
@@ -85,7 +95,7 @@ class WellPlot():
 
     def create_plot(self):
         """
-        Create a 3D line plot for each loaded well using Plotly.
+        Create a 3D line plot object for each loaded well using Plotly.
 
         Returns
         -------
@@ -133,4 +143,5 @@ class WellPlot():
             )
             well_traces.append(well_trace)
 
+        # Return list of plotting objects
         return well_traces

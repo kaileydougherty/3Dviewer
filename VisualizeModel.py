@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 10-JUL-2025
+# Date last modified: 13-JUL-2025
 
 # Import needed libraries
 import dash
@@ -102,7 +102,6 @@ class DataViewer:
                          for i in range(0, len(times_filtered), step)}
                 # Ensure first and last always included
                 marks[0] = times_filtered.iloc[0].strftime("%Y-%m-%d %H:%M:%S")
-                marks[len(times_filtered) - 1] = times_filtered.iloc[-1].strftime("%Y-%m-%d %H:%M:%S")
             else:
                 marks = {}
 
@@ -216,7 +215,13 @@ class DataViewer:
                     step=1,
                     allowCross=False
                 ),
-                style={'width': '92%', 'margin': '20px auto', 'padding': '20px'}
+                style={
+                    'width': '92%',
+                    'margin': '20px auto',
+                    'padding': '20px',
+                    'fontSize': '16px',
+                    'whiteSpace': 'nowrap'
+                }
             ),
 
             # Add input fields for x-, y-, z- ranges and aspect ratio mode

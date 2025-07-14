@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 13-JUL-2025
+# Date last modified: 14-JUL-2025
 
 # Import needed libraries
 import dash
@@ -172,7 +172,7 @@ class DataViewer:
                         {'label': 'Magma', 'value': 'Magma'},
                         {'label': 'Rainbow', 'value': 'Rainbow'}
                     ],
-                    value=self.MSobj.color_scale,  # Default to the attribute from MSView
+                    value=self.MSobj.color_scale,
                     clearable=False,
                     style={'width': '200px', 'marginRight': '20px'}
                 ),
@@ -204,6 +204,13 @@ class DataViewer:
                 )
             ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
 
+            # Slider range output message
+            html.Div(
+                id='slider-range-output',
+                style={'fontWeight': 'bold', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
+            ),
+
+            # Time Range slider block
             html.Label("Time Range:"),
             html.Div(
                 dcc.RangeSlider(
@@ -292,9 +299,6 @@ class DataViewer:
 
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
-                print(f"x_min: {x_min}, x_max: {x_max}, y_min: {y_min}, y_max: {y_max}, z_min: {z_min}, z_max: {z_max}")
-                print(f"color_by: {color_by}, size_by: {size_by}, colorscale: {colorscale}")
-                print(f"time_range: {time_range}, relayout_data: {relayout_data}")
 
                 # Consistently sort and reset index for times in the callback
                 sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().reset_index(drop=True)
@@ -418,12 +422,18 @@ class DataViewer:
                 if relayout_data and 'scene.camera' in relayout_data:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
 
-                # NOTE: Checkpoint for traces - troubleshooting
-                print("Microseismic trace:", ms_traces)
-                print("Well traces:", well_traces)
-                print("Figure data:", fig.data)
-
                 return fig
+
+            @app.callback(
+                Output('slider-range-output', 'children'),
+                Input('time-range-slider', 'value')
+            )
+            def update_slider_output(time_range):
+                start_idx, end_idx = time_range
+                start_time = sorted_times[min(start_idx, end_idx)]
+                end_time = sorted_times[max(start_idx, end_idx)]
+                return f"Selected time range: {start_time} to {end_time}"
+
         else:
             @app.callback(
                 Output('combined-3d-plot', 'figure'),
@@ -467,10 +477,6 @@ class DataViewer:
                 # Preserve camera settings
                 if relayout_data and 'scene.camera' in relayout_data:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
-
-                # NOTE: Checkpoint for traces - troubleshooting
-                print("Figure data:", fig.data)
-                return fig
 
         # NOTE: Checkpoint for sliders - troubleshooting
         print(f"Data min time: {self.MSobj.data['Origin DateTime'].min()}")

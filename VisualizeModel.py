@@ -15,9 +15,7 @@ class DataViewer:
     """
     A class to visualize well trajectories and microseismic event data using interactive 3D Plotly figures.
 
-    This class integrates well data and time-filtered seismic data into a single visualization.
-    If a microseismic data object is provided, interactive sliders allow users to filter and display events
-    based on their origin timestamps.
+    This class integrates well data and time-filtered seismic data into a single visualization through Plotly Dash.
 
     Attributes
     ----------
@@ -28,10 +26,19 @@ class DataViewer:
         A list of Plotly-compatible 3D trace objects representing well trajectories.
     plot_objects : list
         A combined list of all Plotly trace objects to be displayed, including well and seismic traces.
+
+    Methods
+    -------
+    __init__(self, MS_obj=None, well_objs=None)
+        Initialize the DataViewer with optional well and microseismic data sources.
+    run_dash_app()
+        Runs the Dash web application for visualizing microseismic and well data.
+        Provides interactive controls for filtering by time, color, size, axis ranges, and aspect ratio.
+        Preserves user camera/zoom settings between updates.
     """
     def __init__(self, MS_obj=None, well_objs=None):
         """
-        Initialize the DataViewer with optional well and seismic data sources.
+        Initialize the DataViewer with optional well and microseismic data sources.
 
         Parameters
         ----------
@@ -53,6 +60,18 @@ class DataViewer:
     def run_dash_app(self):
         """
         Run the Dash web application for visualizing microseismic and well data.
+
+        The app provides:
+        - Interactive dropdowns for color and size attributes.
+        - A time range slider to filter events by timestamp.
+        - Dynamic display of the selected time range.
+        - Inputs for axis ranges and aspect ratio.
+        - A 3D Plotly graph showing microseismic events and well trajectories.
+        - Preservation of user camera/zoom settings between updates.
+
+        Returns
+        -------
+        None
         """
         # NOTE: checkpoint - troubleshooting
         print("Dash app started")
@@ -74,14 +93,14 @@ class DataViewer:
 
             # Determine start and end times
             if self.MSobj.plot_start_time is not None:
-                start_time = pd.to_datetime(self.MSobj.plot_start_time)
+                start_time = pd.to_datetime(self.MSobj.plot_start_time)  # Make start user defined
             else:
-                start_time = sorted_times.min() if len(sorted_times) > 0 else None
+                start_time = sorted_times.min() if len(sorted_times) > 0 else None  # Use all data otherwise
 
             if self.MSobj.plot_end_time is not None:
-                end_time = pd.to_datetime(self.MSobj.plot_end_time)
+                end_time = pd.to_datetime(self.MSobj.plot_end_time)  # Make end user defined
             else:
-                end_time = sorted_times.max() if len(sorted_times) > 0 else None
+                end_time = sorted_times.max() if len(sorted_times) > 0 else None  # Use all data otherwise
 
             # Find indices for the selected range
             start_idx = int(np.searchsorted(sorted_times, start_time, side='left'))
@@ -91,11 +110,13 @@ class DataViewer:
             start_idx = max(0, min(start_idx, len(sorted_times) - 1))
             end_idx = max(0, min(end_idx, len(sorted_times) - 1))
 
-            # Now do the filtering
+            # Filter the dataframe based on found range
             df_filtered = df[(sorted_times >= sorted_times[start_idx]) & (sorted_times <= sorted_times[end_idx])]
 
+            # Convert to datetime
             times_filtered = pd.to_datetime(df_filtered['Origin DateTime'])
 
+            # Create the time range slider labels
             if len(times_filtered) > 0:
                 step = max(1, (len(times_filtered) - 1) // (num_labels - 1))
                 marks = {i: times_filtered.iloc[i].strftime("%Y-%m-%d %H:%M:%S")
@@ -105,6 +126,7 @@ class DataViewer:
             else:
                 marks = {}
 
+            # Grab the starting axes range by using the min. and max. of microseismic data
             x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
             y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
             z_range = [self.MSobj.data['Depth TVDSS (ft)'].min(), self.MSobj.data['Depth TVDSS (ft)'].max()]
@@ -121,6 +143,7 @@ class DataViewer:
             size_options = [{'label': size_by_default, 'value': size_by_default}]
             size_options += [{'label': col, 'value': col} for col in numeric_cols if col != size_by_default]
 
+            # Define placeholders for the colorbar input field
             colorbar_min_placeholder = None
             colorbar_max_placeholder = None
             if color_by_default in df.columns:
@@ -204,13 +227,13 @@ class DataViewer:
                 )
             ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
 
-            # Slider range output message
+            # Insert slider range output message
             html.Div(
                 id='slider-range-output',
-                style={'fontWeight': 'bold', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
+                style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
             ),
 
-            # Time Range slider block
+            # Show time range slider
             html.Label("Time Range:"),
             html.Div(
                 dcc.RangeSlider(
@@ -231,7 +254,7 @@ class DataViewer:
                 }
             ),
 
-            # Add input fields for x-, y-, z- ranges and aspect ratio mode
+            # Group input fields for x-, y-, z- ranges and dropdown for aspect ratio mode in a flex row
             html.Div([
                 html.Label("X Range: "),
                 dcc.Input(id='x-min', type='number', placeholder=f"{x_range[0]:.2f}",
@@ -272,7 +295,7 @@ class DataViewer:
 
         app.layout = html.Div(layout_children)
 
-        # Callback only for microseismic data
+        # Callback only for microseismic data to update the plot dynamically
         if has_ms:
             @app.callback(
                 Output('combined-3d-plot', 'figure'),
@@ -349,9 +372,12 @@ class DataViewer:
                         fig.update_layout(scene_camera=relayout_data['scene.camera'])
                     return fig
 
-                start_idx, end_idx = time_range
+                # Set new start and end based on slider movement
+                start_idx, end_idx = time_range  # Unpack the slider values
+                # Clamp indices to valid range
                 start_idx = max(0, min(start_idx, len(sorted_times) - 1))
                 end_idx = max(0, min(end_idx, len(sorted_times) - 1))
+                # Extract times from sorted list
                 start_time = sorted_times[min(start_idx, end_idx)]
                 end_time = sorted_times[max(start_idx, end_idx)]
 
@@ -365,7 +391,7 @@ class DataViewer:
                 self.MSobj.set_start_time(str(start_time))
                 self.MSobj.set_end_time(str(end_time))
                 self.MSobj.set_colorscale(colorscale)
-                # Set colorbar range if both min and max are provided, else None for auto
+                # Set colorbar range if both min. and max. are provided, otherwise set as auto
                 if colorbar_min is not None and colorbar_max is not None:
                     self.MSobj.set_colorbar_range([colorbar_min, colorbar_max])
                 else:
@@ -373,7 +399,8 @@ class DataViewer:
                 ms_traces = [self.MSobj.create_plot()]
                 well_traces = self.well_objs if has_well else []
 
-                # Use user input if provided, else use auto-calculated defaults
+                # Update the x-, y-, z- ranges based on user input or defaults
+                # Use user input if provided, otherwise use auto-calculated defaults
                 x_range_plot = [x_min if x_min is not None else x_range[0],
                                 x_max if x_max is not None else x_range[1]]
                 y_range_plot = [y_min if y_min is not None else y_range[0],
@@ -384,6 +411,7 @@ class DataViewer:
                 # Reverse z-axis to align with TVDSS convention
                 z_range_plot = sorted(z_range_plot, reverse=True)  # allows user input in dash app
 
+                # Update figure with new traces
                 fig = go.Figure(data=ms_traces + well_traces)
                 fig.update_layout(
                     height=700,
@@ -424,6 +452,7 @@ class DataViewer:
 
                 return fig
 
+            # Update time range message based on slider movement
             @app.callback(
                 Output('slider-range-output', 'children'),
                 Input('time-range-slider', 'value')
@@ -435,10 +464,12 @@ class DataViewer:
                 return f"Selected time range: {start_time} to {end_time}"
 
         else:
+            # If no microseismic data, just plot well traces
             @app.callback(
                 Output('combined-3d-plot', 'figure'),
                 Input('combined-3d-plot', 'relayoutData')
             )
+            # Update the layout based on user input
             def update_combined_plot(relayout_data):
                 well_traces = self.well_objs if has_well else []
                 fig = go.Figure(data=well_traces)
@@ -482,8 +513,10 @@ class DataViewer:
         print(f"Data min time: {self.MSobj.data['Origin DateTime'].min()}")
         print(f"Data max time: {self.MSobj.data['Origin DateTime'].max()}")
 
+        # Define host and port
         host = "127.0.0.1"
         port = 8050
         print(f"Dash app running at http://{host}:{port}")
 
+        # Run the app with specified host and port
         app.run(debug=True, host=host, port=port)

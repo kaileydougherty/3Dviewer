@@ -146,11 +146,11 @@ class DataViewer:
             # Grab the starting axes range by using the min. and max. of microseismic data
             x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
             y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
-            z_range = [self.MSobj.data['Depth TVDSS (ft)'].min(), self.MSobj.data['Depth TVDSS (ft)'].max()]
+            z_range = [self.MSobj.data['TVDSS (ft)'].min(), self.MSobj.data['TVDSS (ft)'].max()]
 
             # Find all numeric columns for imaging attributes that are not coordinate-related
             numeric_cols = [col for col in self.MSobj.data.select_dtypes(include='number').columns
-                            if col not in ['Easting (ft)', 'Northing (ft)', 'Depth TVDSS (ft)']]
+                            if col not in ['Easting (ft)', 'Northing (ft)', 'TVDSS (ft)']]
             # Ensure current color_by is first in dropdown
             color_by_default = self.MSobj.color_by
             color_options = [{'label': color_by_default, 'value': color_by_default}]
@@ -344,7 +344,7 @@ class DataViewer:
                 sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().reset_index(drop=True)
                 x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
                 y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
-                z_range = [self.MSobj.data['Depth TVDSS (ft)'].min(), self.MSobj.data['Depth TVDSS (ft)'].max()]
+                z_range = [self.MSobj.data['TVDSS (ft)'].min(), self.MSobj.data['TVDSS (ft)'].max()]
                 has_well = self.well_objs is not None and len(self.well_objs) > 0
 
                 if not sorted_times.any() or len(sorted_times) == 0:
@@ -479,6 +479,29 @@ class DataViewer:
                 start_time = sorted_times[min(start_idx, end_idx)]
                 end_time = sorted_times[max(start_idx, end_idx)]
                 return f"Selected time range: {start_time} to {end_time}"
+
+            # Update colorbar range placeholders
+            @app.callback(
+                Output('colorbar-min', 'placeholder'),
+                Output('colorbar-max', 'placeholder'),
+                Input('color-by-dropdown', 'value'),  # Update when color_by changes
+                Input('time-range-slider', 'value')  # Update when time range changes
+            )
+            def update_colorbar_placeholders(color_by, time_range):
+                start_idx, end_idx = time_range
+                start_time = sorted_times[min(start_idx, end_idx)]
+                end_time = sorted_times[max(start_idx, end_idx)]
+                df_filtered = self.MSobj.data[
+                    (pd.to_datetime(self.MSobj.data['Origin DateTime']) >= start_time) &
+                    (pd.to_datetime(self.MSobj.data['Origin DateTime']) <= end_time)
+                ]
+                if color_by in df_filtered.columns and not df_filtered.empty:
+                    min_val = f"{df_filtered[color_by].min():.2f}"
+                    max_val = f"{df_filtered[color_by].max():.2f}"
+                else:
+                    min_val = "Auto min"
+                    max_val = "Auto max"
+                return min_val, max_val
 
         else:
             # If no microseismic data, just plot well traces

@@ -1,7 +1,7 @@
 # Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
-# Date last modified: 14-JUL-2025
+# Date last modified: 15-JUL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -136,24 +136,80 @@ class MSPlot():
         self.plot_end_time = None
 
     def set_colorby(self, color_by):
+        """
+        Set the attribute to be used for color encoding the plot points.
+
+        Parameters
+        ----------
+        color_by : str
+            The column name in the data to use for coloring the plot points.
+        """
         self.color_by = color_by
 
     def set_colorscale(self, color_scale):
+        """
+        Set the color scale for the plot.
+
+        Parameters
+        ----------
+        color_scale : str
+            The name of the Plotly color scale to use (e.g., 'Viridis', 'Cividis').
+        """
         self.color_scale = color_scale
 
     def set_colorbar_range(self, color_range):
+        """
+        Set the range for the colorbar.
+
+        Parameters
+        ----------
+        color_range : list of int or float
+            A list or tuple of two values specifying the min and max for the colorbar.
+        """
         self.colorbar_range = color_range
 
     def set_sizeby(self, size_by):
+        """
+        Set the attribute to be used for sizing the plot points.
+
+        Parameters
+        ----------
+        size_by : str
+            The column name in the data to use for sizing the plot points.
+        """
         self.size_by = size_by
 
     def set_sizerange(self, size_range):
+        """
+        Set the range for scaling the size of the plot points.
+
+        Parameters
+        ----------
+        size_range : list of int or float
+            A list or tuple of two values specifying the min and max size for the plot points.
+        """
         self.size_range = size_range
 
     def set_start_time(self, plot_start_time):
+        """
+        Set the start time for the plot's time range.
+
+        Parameters
+        ----------
+        plot_start_time : str
+            The start time in 'YYYY-MM-DD HH:MM:SS' format for filtering events.
+        """
         self.plot_start_time = plot_start_time
 
     def set_end_time(self, plot_end_time):
+        """
+        Set the end time for the plot's time range.
+
+        Parameters
+        ----------
+        plot_end_time : str
+            The end time in 'YYYY-MM-DD HH:MM:SS' format for filtering events.
+        """
         self.plot_end_time = plot_end_time
 
     def load_csv(self, MScatalog):

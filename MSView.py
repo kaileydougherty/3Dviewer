@@ -1,4 +1,4 @@
-# Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
+# Create plotting objects for microseismic events to include in visualized model.
 # Author: Kailey Dougherty
 # Date created: 19-JAN-2025
 # Date last modified: 15-JUL-2025

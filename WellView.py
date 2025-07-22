@@ -1,7 +1,7 @@
-# Create a plotter to include wells in visualized model.
+# Create plotting objects to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 14-JUL-2025
+# Date last modified: 15-JUL-2025
 
 # Import needed libraries
 import pandas as pd

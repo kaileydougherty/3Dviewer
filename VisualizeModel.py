@@ -1,7 +1,7 @@
-# Create a 3D visualization for distributed fiber optic sensing data for microseismic events.
+# Create a 3D visualization for distributed acoustic sensing data for microseismic events.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 14-JUL-2025
+# Date last modified: 22-JUL-2025
 
 # Import needed libraries
 import dash
@@ -48,7 +48,7 @@ class DataViewer:
         Provides interactive controls for filtering by time, color, size, axis ranges, and aspect ratio.
         Preserves user camera/zoom settings between updates.
     """
-    def __init__(self, MS_obj=None, well_objs=None):
+    def __init__(self, MS_obj=None, well_objs=None, DAS_image=None):
         """
         Initialize the DataViewer with optional well and microseismic data sources.
 
@@ -63,6 +63,7 @@ class DataViewer:
         """
         self.MSobj = MS_obj
         self.well_objs = well_objs if well_objs is not None else []
+        self.DASimage = DAS_image
         self.plot_objects = []
         self._last_fig = None
         self.title = 'Seismic and Well Trajectory Viewer'
@@ -96,6 +97,7 @@ class DataViewer:
         # Check what data is available
         has_ms = self.MSobj is not None
         has_well = self.well_objs is not None and len(self.well_objs) > 0
+        # has_das = self.DASimage is not None
 
         # If microseismic was added, prepare graph
         if self.MSobj is not None:
@@ -186,7 +188,7 @@ class DataViewer:
             print("Error: No data provided for visualization.")
             return
 
-        app = dash.Dash(__name__)
+        app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
         layout_children = [
             html.H1(self.title, style={'textAlign': 'center', 'marginBottom': '30px'}),
@@ -251,10 +253,10 @@ class DataViewer:
             ),
 
             # Show time range slider
-            html.Label("Time Range:"),
+            html.Label("Microseismic Events Time Range:"),
             html.Div(
                 dcc.RangeSlider(
-                    id='time-range-slider',
+                    id='ms-time-slider',
                     min=0,
                     max=len(times_filtered) - 1,
                     value=[0, len(times_filtered) - 1],
@@ -270,6 +272,26 @@ class DataViewer:
                     'whiteSpace': 'nowrap'
                 }
             ),
+
+            # # Add DAS time slider
+            # html.Label("DAS Time Index:"),
+            # html.Div(
+            #     dcc.Slider(
+            #         id='das-time-slider',
+            #         min=0,
+            #         max=(getattr(self.DAS_image, 'num_times', 100) - 1) if has_das else 0,
+            #         value=0,
+            #         marks={0: '0'},  # NEED TO UPDATE TO SHOW ACTUAL TIME LABELS!
+            #         step=1
+            #     ),
+            #     style={
+            #         'width': '92%',
+            #         'margin': '10px auto 20px auto',
+            #         'padding': '10px',
+            #         'fontSize': '16px',
+            #         'whiteSpace': 'nowrap'
+            #     }
+            # ),
 
             # Group input fields for x-, y-, z- ranges and dropdown for aspect ratio mode in a flex row
             html.Div([
@@ -303,11 +325,29 @@ class DataViewer:
                 ),
             ], style={'margin': '10px 0', 'display': 'flex', 'alignItems': 'center'}),
 
-            dcc.Graph(
-                id='combined-3d-plot',
-                figure=go.Figure(),
-                style={'height': '600px', 'width': '90%'}
-            )
+            # Main row for 3D plot and DAS image using grid layout
+            html.Div(
+                [
+                    dcc.Graph(
+                        id='combined-3d-plot',
+                        figure=go.Figure(),
+                        style={'height': '600px', 'width': '100%'}
+                    ),
+                    html.Div([
+                        html.H2("DAS", style={'textAlign': 'center'}),
+                        html.Img(src=self.DASimage, id='das-image', style={
+                            'width': '400px', 'height': '400px', 'display': 'block', 'margin': 'auto'
+                        })
+                    ], style={'width': '85%', 'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'})
+                ],
+                style={
+                    'display': 'grid',
+                    'gridTemplateColumns': '3fr 2fr',  # 3:2 width ratio for plot:image
+                    'gap': '20px',
+                    'alignItems': 'start',
+                    'marginTop': '20px'
+                }
+            ),
         ]
 
         app.layout = html.Div(layout_children)
@@ -318,7 +358,7 @@ class DataViewer:
                 Output('combined-3d-plot', 'figure'),
                 Input('color-by-dropdown', 'value'),
                 Input('size-by-dropdown', 'value'),
-                Input('time-range-slider', 'value'),
+                Input('ms-time-slider', 'value'),
                 Input('combined-3d-plot', 'relayoutData'),
                 Input('x-min', 'value'),
                 Input('x-max', 'value'),
@@ -472,7 +512,7 @@ class DataViewer:
             # Update time range message based on slider movement
             @app.callback(
                 Output('slider-range-output', 'children'),
-                Input('time-range-slider', 'value')
+                Input('ms-time-slider', 'value')
             )
             def update_slider_output(time_range):
                 start_idx, end_idx = time_range
@@ -485,7 +525,7 @@ class DataViewer:
                 Output('colorbar-min', 'placeholder'),
                 Output('colorbar-max', 'placeholder'),
                 Input('color-by-dropdown', 'value'),  # Update when color_by changes
-                Input('time-range-slider', 'value')  # Update when time range changes
+                Input('ms-time-slider', 'value')
             )
             def update_colorbar_placeholders(color_by, time_range):
                 start_idx, end_idx = time_range
@@ -503,6 +543,17 @@ class DataViewer:
                     max_val = "Auto max"
                 return min_val, max_val
 
+        # if has_das:
+        #     # NEED TO UPDATE TO SHOW ACTUAL TIME LABELS!
+        #     # If DAS data is available, display the image
+        #     @app.callback(
+        #         Output('das-image', 'src'),
+        #         Input('das-time-slider', 'value')
+        #     )
+        #     def update_das_image(das_time_idx):
+        #         if self.DAS_obj is not None:
+        #             return self.DAS_obj.create_waterfall(time_index=das_time_idx)
+
         else:
             # If no microseismic data, just plot well traces
             @app.callback(
@@ -510,7 +561,7 @@ class DataViewer:
                 Input('combined-3d-plot', 'relayoutData')
             )
             # Update the layout based on user input
-            def update_combined_plot(relayout_data):
+            def update_well_only_plot(relayout_data):
                 well_traces = self.well_objs if has_well else []
                 fig = go.Figure(data=well_traces)
                 # Set layout to be consistent

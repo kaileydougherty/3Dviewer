@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 28-JUL-2025
+# Date last modified: 29-JUL-2025
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -18,6 +18,30 @@ class DASPlot:
     def __init__(self):
         self.data = None
         self.well = None
+        self.color_scale = 'RdBu'  # Default color scale
+        self.colorbar_range = None
+
+    def set_colorscale(self, color_scale):
+        """
+        Set the color scale for the plot.
+
+        Parameters
+        ----------
+        color_scale : str
+            The name of the Plotly color scale to use.
+        """
+        self.color_scale = color_scale
+
+    def set_colorbar_range(self, colorbar_range):
+        """
+        Set the colorbar range for DAS signal visualization.
+
+        Parameters
+        ----------
+        colorbar_range : list or tuple of length 2, or None
+            The min and max values for the colorbar. If None, auto-range will be used.
+        """
+        self.colorbar_range = colorbar_range
 
     def load_h5(self, pylib, filepath):
         import sys  # ASK: Where to put this import? Usually at top, but never used another's library
@@ -65,7 +89,7 @@ class DASPlot:
     def create_plot(self, well_traj=None, time_index=None, depth_offset=None):
         # well_df: DataFrame with columns 'Referenced Northing (ft)', 'Referenced Easting (ft)', 'TVDSS (ft)'
         # time_index: specific time index for DAS data (if None, uses full data)
-      
+
         # Read well trajectory as pandas dataframe to map
         self.well = pd.read_csv(well_traj) if well_traj else None
         well_df = self.well
@@ -83,12 +107,12 @@ class DASPlot:
         dy = np.diff(y_well)
         dz = np.diff(z_well)
         segment_distances = np.sqrt(dx**2 + dy**2 + dz**2)
-      
+
         # Cumulative distance along wellbore (starting from 0)
         cumulative_distance = np.concatenate([[0], np.cumsum(segment_distances)])
-        
+
         print(f"Well trajectory distance range: 0 to {cumulative_distance[-1]:.1f} ft")
-        
+
         # DAS fiber positions - convert from daxis to distance along wellbore
         # Assuming DAS daxis represents distance along fiber (originally in meters)
         das_distances_ft = self.data.daxis * 3.28084  # Convert to feet
@@ -135,17 +159,29 @@ class DASPlot:
                 # For flattened data, repeat or subsample as needed
                 signal = np.tile(signal, len(x_das) // len(signal) + 1)[:len(x_das)]
 
+        # Determine colorbar range
+        # Check if the user inputted a tuple of length 2
+        if self.colorbar_range and len(self.colorbar_range) == 2:
+            cmin, cmax = self.colorbar_range
+        # If not, use auto-settings based on entire dataset
+        else:
+            cmin = self.data.data.min()
+            cmax = self.data.data.max()
+
         das_trace = go.Scatter3d(
             x=x_das,
             y=y_das,
             z=z_das,
             mode='markers',
             marker=dict(
-                size=4,
+                size=3,
                 color=signal,
-                colorscale='RdBu',  # Setting for now
+                colorscale=self.color_scale,
                 colorbar=dict(title='DAS Signal'),
-                opacity=0.8
+                opacity=1.0,
+                cmin=cmin,
+                cmax=cmax,
+                line=dict(width=0)
             ),
             name='DAS Signal'
         )

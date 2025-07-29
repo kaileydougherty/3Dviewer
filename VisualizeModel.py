@@ -1,7 +1,7 @@
-# Create a 3D visualization for distributed acoustic sensing data for microseismic events.
+# Create a 3D visualization to show distributed acoustic sensing data and microseismic events with well trajectories.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 22-JUL-2025
+# Date last modified: 29-JUL-2025
 
 # Import needed libraries
 import dash
@@ -26,6 +26,18 @@ class DataViewer:
     well_objs : list, optional
         A list of Plotly-compatible 3D trace objects representing well trajectories.
 
+    DASobj : object, optional
+        A Plotly Scatter3d trace object for DAS data visualization.
+
+    DAS_image : str, optional
+        Base64 encoded image string for DAS waterfall plot.
+
+    DAS_viewer : object, optional
+        The DAS plotting object containing the loaded DAS data for time slicing.
+
+    well_trajectory_path : str, optional
+        Path to the well trajectory CSV file for DAS 3D plotting.
+
     plot_objects : list
         A combined list of all Plotly trace objects to be displayed, including well and seismic traces.
 
@@ -48,7 +60,8 @@ class DataViewer:
         Provides interactive controls for filtering by time, color, size, axis ranges, and aspect ratio.
         Preserves user camera/zoom settings between updates.
     """
-    def __init__(self, MS_obj=None, well_objs=None, DAS_image=None):
+    def __init__(self, MS_obj=None, well_objs=None, DAS_obj=None, DAS_image=None,
+                 DAS_viewer=None, well_trajectory_path=None):
         """
         Initialize the DataViewer with optional well and microseismic data sources.
 
@@ -60,10 +73,25 @@ class DataViewer:
 
         well_objs : list, optional
             A list of Plotly 3D trace objects providing well trajectories.
+
+        DAS_obj : object, optional
+            A Plotly Scatter3d trace object for DAS data visualization.
+
+        DAS_image : str, optional
+            Base64 encoded image string for DAS waterfall plot.
+
+        DAS_viewer : object, optional
+            The DAS plotting object containing the loaded DAS data for time slicing.
+
+        well_trajectory_path : str, optional
+            Path to the well trajectory CSV file for DAS 3D plotting.
         """
         self.MSobj = MS_obj
         self.well_objs = well_objs if well_objs is not None else []
+        self.DASobj = DAS_obj
         self.DASimage = DAS_image
+        self.DASviewer = DAS_viewer
+        self.well_trajectory_path = well_trajectory_path
         self.plot_objects = []
         self._last_fig = None
         self.title = 'Seismic and Well Trajectory Viewer'
@@ -97,11 +125,31 @@ class DataViewer:
         # Check what data is available
         has_ms = self.MSobj is not None
         has_well = self.well_objs is not None and len(self.well_objs) > 0
-        # has_das = self.DASimage is not None
+        has_das = self.DASviewer is not None
+
+        # For TROUBLESHOOTING
+        print("Data availability check:")
+        print(f"  - Microseismic: {has_ms}")
+        print(f"  - Wells: {has_well}")
+        print(f"  - DAS viewer: {has_das}")
+        print(f"  - DAS viewer type: {type(self.DASviewer)}")
+
+        # Get DAS time information if available
+        das_times = []
+        if has_das and self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
+            try:
+                das_times = self.DASviewer.data.taxis  # Get time axis from DAS data
+                print(f"DAS time range: {das_times[0]} to {das_times[-1]} ({len(das_times)} time steps)")
+            except AttributeError as e:
+                print(f"Warning: Could not access DAS time axis: {e}")
+                has_das = False
+        else:
+            print("DAS viewer not available or doesn't have data attribute")
 
         # If microseismic was added, prepare graph
         if self.MSobj is not None:
 
+            # Prepare ms range slider
             # Set number of labels for the time range slider, always include first and last
             num_labels = 5  # NOTE: Could make this an attribute to allow user customization
 
@@ -145,11 +193,13 @@ class DataViewer:
             else:
                 marks = {}
 
+            # Prepare axes based on data
             # Grab the starting axes range by using the min. and max. of microseismic data
             x_range = [self.MSobj.data['Easting (ft)'].min(), self.MSobj.data['Easting (ft)'].max()]
             y_range = [self.MSobj.data['Northing (ft)'].min(), self.MSobj.data['Northing (ft)'].max()]
             z_range = [self.MSobj.data['TVDSS (ft)'].min(), self.MSobj.data['TVDSS (ft)'].max()]
 
+            # Prepare dropdowns based on data
             # Find all numeric columns for imaging attributes that are not coordinate-related
             numeric_cols = [col for col in self.MSobj.data.select_dtypes(include='number').columns
                             if col not in ['Easting (ft)', 'Northing (ft)', 'TVDSS (ft)']]
@@ -182,7 +232,6 @@ class DataViewer:
             x_range = [min(all_x), max(all_x)]
             y_range = [min(all_y), max(all_y)]
             z_range = [min(all_z), max(all_z)]
-            color_options = []
 
         else:
             print("Error: No data provided for visualization.")
@@ -192,107 +241,144 @@ class DataViewer:
 
         layout_children = [
             html.H1(self.title, style={'textAlign': 'center', 'marginBottom': '30px'}),
+        ]
 
-            # Group color-by, colorscale, and colorbar range dropdowns in a flex row
-            html.Div([
-                html.Label("Color points by:", style={'marginRight': '8px'}),
-                dcc.Dropdown(
-                    id='color-by-dropdown',
-                    options=color_options,
-                    value=color_by_default,
-                    clearable=False,
-                    style={'width': '200px', 'marginRight': '20px'}
+        # Add informational message if only wells are available
+        if has_well and not has_ms and not has_das:
+            layout_children.append(
+                html.Div([
+                    html.P("Displaying well trajectories only. No microseismic or DAS data available.",
+                           style={'textAlign': 'center', 'fontStyle': 'italic', 'color': '#666'})
+                ], style={'marginBottom': '20px'})
+            )
+
+        # Only add microseismic controls if MS data is available
+        if has_ms:
+            layout_children.extend([
+                html.Div(
+                    children="Microseismic Events",
+                    style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
                 ),
-                html.Label("Colorscale:", style={'marginRight': '8px'}),
-                dcc.Dropdown(
-                    id='colorscale-dropdown',
-                    options=[
-                        {'label': 'Viridis', 'value': 'Viridis'},
-                        {'label': 'Cividis', 'value': 'Cividis'},
-                        {'label': 'Plasma', 'value': 'Plasma'},
-                        {'label': 'Inferno', 'value': 'Inferno'},
-                        {'label': 'Magma', 'value': 'Magma'},
-                        {'label': 'Rainbow', 'value': 'Rainbow'}
-                    ],
-                    value=self.MSobj.color_scale,
-                    clearable=False,
-                    style={'width': '200px', 'marginRight': '20px'}
+                # Group color-by, colorscale, and colorbar range dropdowns in a flex row
+                html.Div([
+                    html.Label("Color points by:", style={'marginRight': '8px'}),
+                    dcc.Dropdown(
+                        id='color-by-dropdown',
+                        options=color_options,
+                        value=color_by_default,
+                        clearable=False,
+                        style={'width': '200px', 'marginRight': '20px'}
+                    ),
+                    html.Label("Colorscale:", style={'marginRight': '8px'}),
+                    dcc.Dropdown(
+                        id='colorscale-dropdown',
+                        options=[
+                            {'label': 'Viridis', 'value': 'Viridis'},
+                            {'label': 'Cividis', 'value': 'Cividis'},
+                            {'label': 'Plasma', 'value': 'Plasma'},
+                            {'label': 'Inferno', 'value': 'Inferno'},
+                            {'label': 'Magma', 'value': 'Magma'},
+                            {'label': 'Rainbow', 'value': 'Rainbow'}
+                        ],
+                        value=self.MSobj.color_scale,
+                        clearable=False,
+                        style={'width': '200px', 'marginRight': '20px'}
+                    ),
+                    html.Label("Colorbar Range:", style={'marginRight': '8px'}),
+                    dcc.Input(
+                        id='colorbar-min', type='number',
+                        placeholder=f"{colorbar_min_placeholder:.2f}" if colorbar_min_placeholder is not None else
+                        "Auto min",
+                        style={'width': '100px', 'marginRight': '4px'},
+                        debounce=True
+                    ),
+                    dcc.Input(
+                        id='colorbar-max', type='number',
+                        placeholder=f"{colorbar_max_placeholder:.2f}" if colorbar_max_placeholder is not None else
+                        "Auto max",
+                        style={'width': '100px', 'marginRight': '20px'},
+                        debounce=True
+                    ),
+                ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
+
+                html.Div([
+                    html.Label("Size points by:", style={'marginRight': '8px'}),
+                    dcc.Dropdown(
+                        id='size-by-dropdown',
+                        options=size_options,
+                        value=size_by_default,
+                        clearable=False,
+                        style={'width': '200px', 'marginRight': '20px'}
+                    )
+                ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
+
+                # Insert slider range output message
+                html.Div(
+                    id='slider-range-output',
+                    style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
                 ),
-                html.Label("Colorbar Range:", style={'marginRight': '8px'}),
-                dcc.Input(
-                    id='colorbar-min', type='number',
-                    placeholder=f"{colorbar_min_placeholder:.2f}" if colorbar_min_placeholder is not None else
-                    "Auto min",
-                    style={'width': '100px', 'marginRight': '4px'},
-                    debounce=True
+
+                # Show time range slider
+                html.Div(
+                    dcc.RangeSlider(
+                        id='ms-time-slider',
+                        min=0,
+                        max=len(times_filtered) - 1,
+                        value=[0, len(times_filtered) - 1],
+                        marks=marks,
+                        step=1,
+                        allowCross=False
+                    ),
+                    style={
+                        'width': '92%',
+                        'margin': '20px auto',
+                        'padding': '20px',
+                        'fontSize': '16px',
+                        'whiteSpace': 'nowrap'
+                    }
                 ),
-                dcc.Input(
-                    id='colorbar-max', type='number',
-                    placeholder=f"{colorbar_max_placeholder:.2f}" if colorbar_max_placeholder is not None else
-                    "Auto max",
-                    style={'width': '100px', 'marginRight': '20px'},
-                    debounce=True
+            ])
+
+        # Conditionally add DAS slider if DAS data is available
+        if has_das and len(das_times) > 0:
+            # Limit the number of marks for performance - show only every N-th time step
+            max_marks = 10  # Maximum number of marks to display
+            step_size = max(1, len(das_times) // max_marks)
+
+            layout_children.extend([
+                html.Div(
+                    children="DAS",
+                    style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
                 ),
-            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
-
-            html.Div([
-                html.Label("Size points by:", style={'marginRight': '8px'}),
-                dcc.Dropdown(
-                    id='size-by-dropdown',
-                    options=size_options,
-                    value=size_by_default,
-                    clearable=False,
-                    style={'width': '200px', 'marginRight': '20px'}
-                )
-            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
-
-            # Insert slider range output message
-            html.Div(
-                id='slider-range-output',
-                style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
-            ),
-
-            # Show time range slider
-            html.Label("Microseismic Events Time Range:"),
-            html.Div(
-                dcc.RangeSlider(
-                    id='ms-time-slider',
-                    min=0,
-                    max=len(times_filtered) - 1,
-                    value=[0, len(times_filtered) - 1],
-                    marks=marks,
-                    step=1,
-                    allowCross=False
+                html.Div(
+                    id='das-time-output',
+                    style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '8px'}
                 ),
-                style={
-                    'width': '92%',
-                    'margin': '20px auto',
-                    'padding': '20px',
-                    'fontSize': '16px',
-                    'whiteSpace': 'nowrap'
-                }
-            ),
+                html.Div(
+                    dcc.Slider(
+                        id='das-time-slider',
+                        min=0,
+                        max=len(das_times) - 1,
+                        value=0,
+                        marks={
+                            i: f"{das_times[i]:.2f}"
+                            for i in range(0, len(das_times), step_size)
+                        },
+                        step=1,
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                    style={
+                        'width': '92%',
+                        'margin': '10px auto 20px auto',
+                        'padding': '10px',
+                        'fontSize': '16px',
+                        'whiteSpace': 'nowrap'
+                    }
+                ),
+            ])
 
-            # # Add DAS time slider
-            # html.Label("DAS Time Index:"),
-            # html.Div(
-            #     dcc.Slider(
-            #         id='das-time-slider',
-            #         min=0,
-            #         max=(getattr(self.DAS_image, 'num_times', 100) - 1) if has_das else 0,
-            #         value=0,
-            #         marks={0: '0'},  # NEED TO UPDATE TO SHOW ACTUAL TIME LABELS!
-            #         step=1
-            #     ),
-            #     style={
-            #         'width': '92%',
-            #         'margin': '10px auto 20px auto',
-            #         'padding': '10px',
-            #         'fontSize': '16px',
-            #         'whiteSpace': 'nowrap'
-            #     }
-            # ),
-
+        # Continue with the rest of the layout
+        layout_children.extend([
             # Group input fields for x-, y-, z- ranges and dropdown for aspect ratio mode in a flex row
             html.Div([
                 html.Label("X Range: "),
@@ -324,58 +410,82 @@ class DataViewer:
                     style={'width': '150px', 'marginRight': '20px'}
                 ),
             ], style={'margin': '10px 0', 'display': 'flex', 'alignItems': 'center'}),
+        ])
 
+        # Conditionally add DAS image layout based on data availability
+        if has_das and self.DASimage:
             # Main row for 3D plot and DAS image using grid layout
-            html.Div(
-                [
+            layout_children.append(
+                html.Div(
+                    [
+                        dcc.Graph(
+                            id='combined-3d-plot',
+                            figure=go.Figure(),
+                            style={'height': '600px', 'width': '100%'}
+                        ),
+                        html.Div([
+                            html.H2("DAS", style={'textAlign': 'center'}),
+                            html.Img(src=self.DASimage, id='das-image', style={
+                                'width': '300px', 'height': '300px', 'display': 'block', 'margin': 'auto'
+                            })
+                        ], style={'width': '85%', 'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'})
+                    ],
+                    style={
+                        'display': 'grid',
+                        'gridTemplateColumns': '3fr 2fr',  # 3:2 width ratio for plot:image
+                        'gap': '20px',
+                        'alignItems': 'start',
+                        'marginTop': '20px'
+                    }
+                )
+            )
+        else:
+            # Simple layout with just the 3D plot when no DAS image
+            layout_children.append(
+                html.Div([
                     dcc.Graph(
                         id='combined-3d-plot',
                         figure=go.Figure(),
                         style={'height': '600px', 'width': '100%'}
-                    ),
-                    html.Div([
-                        html.H2("DAS", style={'textAlign': 'center'}),
-                        html.Img(src=self.DASimage, id='das-image', style={
-                            'width': '400px', 'height': '400px', 'display': 'block', 'margin': 'auto'
-                        })
-                    ], style={'width': '85%', 'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'})
-                ],
-                style={
-                    'display': 'grid',
-                    'gridTemplateColumns': '3fr 2fr',  # 3:2 width ratio for plot:image
-                    'gap': '20px',
-                    'alignItems': 'start',
-                    'marginTop': '20px'
-                }
-            ),
-        ]
+                    )
+                ], style={'marginTop': '20px'})
+            )
 
         app.layout = html.Div(layout_children)
 
-        # Callback only for microseismic data to update the plot dynamically
-        if has_ms:
-            @app.callback(
-                Output('combined-3d-plot', 'figure'),
-                Input('color-by-dropdown', 'value'),
-                Input('size-by-dropdown', 'value'),
-                Input('ms-time-slider', 'value'),
-                Input('combined-3d-plot', 'relayoutData'),
-                Input('x-min', 'value'),
-                Input('x-max', 'value'),
-                Input('y-min', 'value'),
-                Input('y-max', 'value'),
-                Input('z-min', 'value'),
-                Input('z-max', 'value'),
-                Input('colorscale-dropdown', 'value'),
-                Input('colorbar-min', 'value'),
-                Input('colorbar-max', 'value'),
-                Input('aspectmode-dropdown', 'value'),
-            )
-            def update_combined_plot(
-                color_by, size_by, time_range, relayout_data, x_min, x_max,
-                y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max,
-                aspect_mode
-            ):
+        # Single callback for the 3D plot
+        @app.callback(
+            Output('combined-3d-plot', 'figure'),
+            Input('color-by-dropdown', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('size-by-dropdown', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('ms-time-slider', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('combined-3d-plot', 'relayoutData'),
+            Input('x-min', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('x-max', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('y-min', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('y-max', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('z-min', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('z-max', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('colorscale-dropdown', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('colorbar-min', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('colorbar-max', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('aspectmode-dropdown', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
+            Input('das-time-slider', 'value') if has_das else Input('combined-3d-plot', 'relayoutData'),
+            allow_duplicate=True
+        )
+        def update_combined_plot(*args):
+            if has_ms:
+                # Unpack arguments for MS case, including DAS slider if available
+                if has_das:
+                    (color_by, size_by, time_range, relayout_data, x_min, x_max,
+                     y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max,
+                     aspect_mode, das_time_idx) = args
+                    print(f"DAS SLIDER CALLBACK TRIGGERED - DAS time index: {das_time_idx}")
+                else:
+                    (color_by, size_by, time_range, relayout_data, x_min, x_max,
+                     y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max,
+                     aspect_mode) = args
+                    das_time_idx = None
 
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
@@ -387,13 +497,13 @@ class DataViewer:
                 z_range = [self.MSobj.data['TVDSS (ft)'].min(), self.MSobj.data['TVDSS (ft)'].max()]
                 has_well = self.well_objs is not None and len(self.well_objs) > 0
 
-                if not sorted_times.any() or len(sorted_times) == 0:
+                if not (sorted_times != pd.Timestamp(0)).any() or len(sorted_times) == 0:
                     well_traces = self.well_objs if has_well else []
                     fig = go.Figure(data=well_traces)
                     # Set layout to be consistent
                     fig.update_layout(
                         height=700,
-                        width=1000,
+                        width=1000,  # Reverted back to original width
                         scene=dict(
                             xaxis_title="Easting (ft)",
                             yaxis_title="Northing (ft)",
@@ -415,7 +525,7 @@ class DataViewer:
                             )
                         ),
                         legend=dict(
-                            x=1.18,
+                            x=1.45,
                             y=0.5,
                             xanchor='left',
                             yanchor='top',
@@ -454,6 +564,39 @@ class DataViewer:
                 else:
                     self.MSobj.set_colorbar_range(None)
                 ms_traces = [self.MSobj.create_plot()]
+
+                # Handle DAS traces - Update DAS 3D plot based on time slider
+                das_traces = []
+                if self.DASviewer is not None and has_das and das_time_idx is not None:
+                    try:
+                        # Create updated DAS 3D plot for the selected time index
+                        print(f"Updating DAS 3D plot for time index: {das_time_idx}")
+      
+                        # Check if well trajectory path is available
+                        if self.well_trajectory_path is None:
+                            print("Warning: No well trajectory path provided for DAS 3D plot")
+                            das_plot = None
+                        else:
+                            # Pass the well trajectory path to create_plot
+                            das_plot = self.DASviewer.create_plot(
+                                well_traj=self.well_trajectory_path,
+                                time_index=das_time_idx
+                            )
+      
+                        if das_plot is not None:
+                            das_traces = [das_plot]
+                        else:
+                            print("Warning: DAS create_plot returned None")
+                    except Exception as e:
+                        print(f"Error updating DAS 3D plot: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # Fall back to original DAS object if available
+                        if self.DASobj is not None:
+                            das_traces = [self.DASobj]
+                elif self.DASobj is not None:
+                    # Use original DAS object if no slider or viewer available
+                    das_traces = [self.DASobj]
                 well_traces = self.well_objs if has_well else []
 
                 # Update the x-, y-, z- ranges based on user input or defaults
@@ -468,11 +611,31 @@ class DataViewer:
                 # Reverse z-axis to align with TVDSS convention
                 z_range_plot = sorted(z_range_plot, reverse=True)  # allows user input in dash app
 
+                # Filter out None values and combine all traces
+                all_traces = []
+                all_traces.extend(ms_traces)
+                all_traces.extend(well_traces)
+                all_traces.extend(das_traces)
+                # Remove any None values from the traces list
+                all_traces = [trace for trace in all_traces if trace is not None]
+
                 # Update figure with new traces
-                fig = go.Figure(data=ms_traces + well_traces)
+                fig = go.Figure(data=all_traces)
+
+                # Adjust colorbar positions for DAS traces to prevent overlap
+                for trace in fig.data:
+                    if hasattr(trace, 'marker') and hasattr(trace.marker, 'colorbar') and trace.name == 'DAS Signal':
+                        # Position DAS colorbar to match MS colorbar size and alignment
+                        trace.marker.colorbar.update(
+                            x=1.2,  # Positioned to the right of MS colorbar
+                            xanchor='left',
+                            y=0.40,  # Same y position as MS colorbar
+                            yanchor='middle'
+                        )
+         
                 fig.update_layout(
                     height=700,
-                    width=1000,
+                    width=1000,  # Reverted back to original width
                     scene=dict(
                         xaxis_title="Easting (ft)",
                         yaxis_title="Northing (ft)",
@@ -491,7 +654,7 @@ class DataViewer:
                         )
                     ),
                     legend=dict(
-                        x=1.18,
+                        x=1.45,
                         y=0.5,
                         xanchor='left',
                         yanchor='top',
@@ -508,11 +671,110 @@ class DataViewer:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
 
                 return fig
+         
+            else:
+                # Handle case with no microseismic data - plot well traces and DAS
+                if has_das:
+                    relayout_data, das_time_idx = args if len(args) >= 2 else (args[0] if args else None, None)
+                    print(f"DAS SLIDER CALLBACK TRIGGERED (No MS) - DAS time index: {das_time_idx}")
+                else:
+                    relayout_data = args[0] if args else None
+                    das_time_idx = None
+               
+                # Handle DAS traces if available
+                das_traces = []
+                if self.DASviewer is not None and has_das and das_time_idx is not None:
+                    try:
+                        print(f"Updating DAS 3D plot for time index: {das_time_idx}")
+                       
+                        # Check if well trajectory path is available
+                        if self.well_trajectory_path is None:
+                            print("Warning: No well trajectory path provided for DAS 3D plot")
+                            das_plot = None
+                        else:
+                            # Pass the well trajectory path to create_plot
+                            das_plot = self.DASviewer.create_plot(
+                                well_traj=self.well_trajectory_path,
+                                time_index=das_time_idx
+                            )
+                       
+                        if das_plot is not None:
+                            das_traces = [das_plot]
+                    except Exception as e:
+                        print(f"Error updating DAS 3D plot: {e}")
+                        if self.DASobj is not None:
+                            das_traces = [self.DASobj]
+                elif self.DASobj is not None:
+                    das_traces = [self.DASobj]
+               
+                well_traces = self.well_objs if has_well else []
+               
+                # Combine all traces
+                all_traces = []
+                all_traces.extend(well_traces)
+                all_traces.extend(das_traces)
+                all_traces = [trace for trace in all_traces if trace is not None]
+                
+                fig = go.Figure(data=all_traces)
+                
+                # Adjust colorbar positions for DAS traces to prevent overlap
+                for trace in fig.data:
+                    if hasattr(trace, 'marker') and hasattr(trace.marker, 'colorbar') and trace.name == 'DAS Signal':
+                        # Position DAS colorbar to match MS colorbar size and alignment
+                        trace.marker.colorbar.update(
+                            x=1.2,  # Positioned to the right of MS colorbar
+                            xanchor='left',
+                            y=0.40,  # Same y position as MS colorbar for alignment
+                            yanchor='middle'
+                        )
+                
+                # Set layout to be consistent
+                fig.update_layout(
+                    height=700,
+                    width=1000,  # Reverted back to original width
+                    scene=dict(
+                        xaxis_title="Easting (ft)",
+                        yaxis_title="Northing (ft)",
+                        zaxis_title="TVDSS (ft)",
+                        xaxis=dict(range=x_range, autorange=False),
+                        yaxis=dict(range=y_range, autorange=False),
+                        zaxis=dict(range=z_range, autorange='reversed'),
+                        aspectmode="manual",
+                        aspectratio=dict(
+                            x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0],
+                                                              y_range[1] - y_range[0], abs(z_range[1] - z_range[0])),
+                            y=(y_range[1] - y_range[0]) / max(x_range[1] - x_range[0],
+                                                              y_range[1] - y_range[0], abs(z_range[1] - z_range[0])),
+                            z=abs(z_range[1] - z_range[0]) / max(x_range[1] - x_range[0],
+                                                                 y_range[1] - y_range[0], abs(z_range[1] - z_range[0]))
+                        )
+                    ),
+                    legend=dict(
+                        x=1.45,  # Moved farther right
+                        y=0.5,
+                        xanchor='left',
+                        yanchor='top',
+                        bordercolor="Black",
+                        borderwidth=1,
+                        bgcolor="white",
+                        font=dict(size=12)
+                    )
+                )
+                # Preserve camera settings
+                if relayout_data and 'scene.camera' in relayout_data:
+                    fig.update_layout(scene_camera=relayout_data['scene.camera'])
+                return fig
 
+        # Register other callbacks only for microseismic data
+        if has_ms:
+            # Get reference to sorted times for callbacks
+            sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().reset_index(drop=True)
+         
             # Update time range message based on slider movement
             @app.callback(
                 Output('slider-range-output', 'children'),
-                Input('ms-time-slider', 'value')
+                Input('ms-time-slider', 'value'),
+                allow_duplicate=True
             )
             def update_slider_output(time_range):
                 start_idx, end_idx = time_range
@@ -543,66 +805,95 @@ class DataViewer:
                     max_val = "Auto max"
                 return min_val, max_val
 
-        # if has_das:
-        #     # NEED TO UPDATE TO SHOW ACTUAL TIME LABELS!
-        #     # If DAS data is available, display the image
-        #     @app.callback(
-        #         Output('das-image', 'src'),
-        #         Input('das-time-slider', 'value')
-        #     )
-        #     def update_das_image(das_time_idx):
-        #         if self.DAS_obj is not None:
-        #             return self.DAS_obj.create_waterfall(time_index=das_time_idx)
-
-        else:
-            # If no microseismic data, just plot well traces
+        if has_das:
+            # DAS callback to update the waterfall image based on time slider
             @app.callback(
-                Output('combined-3d-plot', 'figure'),
-                Input('combined-3d-plot', 'relayoutData')
+                Output('das-image', 'src'),
+                Input('das-time-slider', 'value'),
+                prevent_initial_call=False
             )
-            # Update the layout based on user input
-            def update_well_only_plot(relayout_data):
-                well_traces = self.well_objs if has_well else []
-                fig = go.Figure(data=well_traces)
-                # Set layout to be consistent
-                fig.update_layout(
-                    height=700,
-                    width=1000,
-                    scene=dict(
-                        xaxis_title="Easting (ft)",
-                        yaxis_title="Northing (ft)",
-                        zaxis_title="TVDSS (ft)",
-                        xaxis=dict(range=x_range, autorange=False),
-                        yaxis=dict(range=y_range, autorange=False),
-                        zaxis=dict(range=z_range, autorange='reversed'),
-                        aspectmode="manual",
-                        aspectratio=dict(
-                            x=(x_range[1] - x_range[0]) / max(x_range[1] - x_range[0],
-                                                              y_range[1] - y_range[0], abs(z_range[1] - z_range[0])),
-                            y=(y_range[1] - y_range[0]) / max(x_range[1] - x_range[0],
-                                                              y_range[1] - y_range[0], abs(z_range[1] - z_range[0])),
-                            z=abs(z_range[1] - z_range[0]) / max(x_range[1] - x_range[0],
-                                                                 y_range[1] - y_range[0], abs(z_range[1] - z_range[0]))
+            def update_das_image(das_time_idx):
+                print(f"DAS callback triggered with index: {das_time_idx}")
+                
+                if self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
+                    # Get the time axis fresh from the DAS data
+                    current_das_times = self.DASviewer.data.taxis
+                    if das_time_idx is not None and 0 <= das_time_idx < len(current_das_times):
+                        center_time = current_das_times[das_time_idx]
+                        print(f"DAS time slider moved to index {das_time_idx}, center time value: {center_time}")
+                        
+                        # Calculate time range for a day's worth of data on either side
+                        # Assuming time is in seconds, 1 day = 86400 seconds
+                        day_in_seconds = 86400
+                        start_time = center_time - day_in_seconds
+                        end_time = center_time + day_in_seconds
+                        
+                        # Find the closest indices for start and end times
+                        start_idx = max(0, np.searchsorted(current_das_times, start_time, side='left'))
+                        end_idx = min(len(current_das_times) - 1,
+                                      np.searchsorted(current_das_times, end_time, side='right'))
+                        
+                        print(f"Creating waterfall for time range: "
+                              f"{current_das_times[start_idx]:.2f} to {current_das_times[end_idx]:.2f}")
+                        print(f"Index range: {start_idx} to {end_idx} (center: {das_time_idx})")
+                        
+                        # Create waterfall plot for the time range centered on selected time
+                        new_image = self.DASviewer.create_waterfall(
+                            starttime=current_das_times[start_idx],
+                            endtime=current_das_times[end_idx]
                         )
-                    ),
-                    legend=dict(
-                        x=1.18,
-                        y=0.5,
-                        xanchor='left',
-                        yanchor='top',
-                        bordercolor="Black",
-                        borderwidth=1,
-                        bgcolor="white",
-                        font=dict(size=12)
-                    )
-                )
-                # Preserve camera settings
-                if relayout_data and 'scene.camera' in relayout_data:
-                    fig.update_layout(scene_camera=relayout_data['scene.camera'])
+                        if new_image:
+                            return new_image
+                        else:
+                            print("Warning: create_waterfall returned empty image")
+                            return self.DASimage
+                    else:
+                        print(f"Index {das_time_idx} out of range for DAS times (0-{len(current_das_times)-1})")
+                        return self.DASimage
+
+            # Update DAS time display
+            @app.callback(
+                Output('das-time-output', 'children'),
+                Input('das-time-slider', 'value')
+            )
+            def update_das_time_output(das_time_idx):
+                print(f"DAS time output callback triggered with index: {das_time_idx}")
+                
+                if self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
+                    try:
+                        current_das_times = self.DASviewer.data.taxis
+                        if das_time_idx is not None and 0 <= das_time_idx < len(current_das_times):
+                            time_value = current_das_times[das_time_idx]
+                            total_steps = len(current_das_times)
+                            return f"Selected time: {time_value:.4f} (Index: {das_time_idx}/{total_steps-1})"
+                        else:
+                            return f"Index {das_time_idx} out of range (0-{len(current_das_times)-1})"
+                    except Exception as e:
+                        print(f"Error in DAS time output callback: {e}")
+                        return f"Error: {str(e)}"
+                else:
+                    return "DAS time: No data available"
+
+        # Always register DAS callbacks if DAS components exist in layout
+        # This needs to be outside the has_das condition to avoid callback registration issues
+        if has_das and len(das_times) > 0:
+            print(f"Registering DAS callbacks for {len(das_times)} time steps")
+        
+        # Register DAS callbacks only if DAS slider was added to layout
+        try:
+            # This will only work if the DAS slider components were added to the layout
+            if has_das and len(das_times) > 0:
+                # These callbacks are already defined above
+                pass
+        except Exception as e:
+            print(f"Note: DAS callbacks not registered: {e}")
 
         # NOTE: Checkpoint for sliders - troubleshooting
-        print(f"Data min time: {self.MSobj.data['Origin DateTime'].min()}")
-        print(f"Data max time: {self.MSobj.data['Origin DateTime'].max()}")
+        if has_ms:
+            print(f"Data min time: {self.MSobj.data['Origin DateTime'].min()}")
+            print(f"Data max time: {self.MSobj.data['Origin DateTime'].max()}")
+        else:
+            print("No microseismic data available for time range display")
 
         # Define host and port
         host = "127.0.0.1"

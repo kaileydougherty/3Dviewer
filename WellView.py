@@ -1,7 +1,7 @@
 # Create plotting objects to include wells in visualized model.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 15-JUL-2025
+# Date last modified: 29-JUL-2025
 
 # Import needed libraries
 import pandas as pd
@@ -130,6 +130,12 @@ class WellPlot():
 
         # Add each trace to the well plot
         for i, (well, df) in enumerate(self.data.items()):
+
+            # FOR TROUBLE-SHOOTING: print min/mas coordinates
+            print(f"{well} x: {df['Referenced Easting (ft)'].min()} to {df['Referenced Easting (ft)'].max()}")
+            print(f"{well} y: {df['Referenced Northing (ft)'].min()} to {df['Referenced Northing (ft)'].max()}")
+            print(f"{well} z: {df['TVDSS (ft)'].min()} to {df['TVDSS (ft)'].max()}")
+
             well_trace = go.Scatter3d(
                 x=df['Referenced Easting (ft)'],
                 y=df['Referenced Northing (ft)'],
@@ -137,7 +143,7 @@ class WellPlot():
                 mode='lines',
                 line=dict(
                     color=color_list[i],
-                    width=3
+                    width=4
                 ),
                 name=f'{well} Well'
             )

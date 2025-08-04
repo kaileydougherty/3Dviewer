@@ -94,7 +94,7 @@ class DataViewer:
         self.well_trajectory_path = well_trajectory_path
         self.plot_objects = []
         self._last_fig = None
-        self.title = 'Seismic and Well Trajectory Viewer'
+        self.title = '3DViewer'
 
         if well_objs is not None:
             for obj in well_objs:
@@ -341,54 +341,110 @@ class DataViewer:
 
         # Conditionally add DAS slider if DAS data is available
         if has_das and len(das_times) > 0:
-            # Convert DAS time offsets to actual datetime values for slider
-            das_time_min = float(das_times[0])
-            das_time_max = float(das_times[-1])
-            das_time_step = float(das_times[1] - das_times[0]) if len(das_times) > 1 else 1.0
+            # If microseismic data is available, sync DAS slider range with MS time range
+            if has_ms and len(times_filtered) > 0:
+                # Map DAS times to match microseismic time indices
+                das_time_min = 0
+                das_time_max = len(times_filtered) - 1
+                das_time_step = 1
 
-            # Limit the number of marks for performance - show only every N-th time step
-            max_marks = 10  # Maximum number of marks to display
-            step_size = max(1, len(das_times) // max_marks)
+                # Create marks that correspond to microseismic time indices
+                das_marks = {}
+                step_size = max(1, len(times_filtered) // 10)  # Show max 10 marks
+                for i in range(0, len(times_filtered), step_size):
+                    try:
+                        # Use the same datetime formatting as microseismic
+                        time_str = times_filtered.iloc[i].strftime("%m-%d %H:%M")
+                        das_marks[i] = time_str
+                    except (ValueError, OSError, AttributeError):
+                        das_marks[i] = f"Index {i}"
 
-            # Create marks with actual time values and MS-compatible formatting
-            das_marks = {}
-            for i in range(0, len(das_times), step_size):
-                try:
-                    from datetime import timedelta
-                    # Convert time offset to actual datetime
-                    actual_datetime = self.DASviewer.data.start_time + timedelta(seconds=das_times[i])
-                    das_marks[float(das_times[i])] = actual_datetime.strftime("%m-%d %H:%M")
-                except (ValueError, OSError, AttributeError):
-                    das_marks[float(das_times[i])] = f"{das_times[i]:.2f}s"
+                # Ensure first and last marks are included
+                if 0 not in das_marks:
+                    das_marks[0] = times_filtered.iloc[0].strftime("%m-%d %H:%M")
+                if (len(times_filtered) - 1) not in das_marks:
+                    das_marks[len(times_filtered) - 1] = times_filtered.iloc[-1].strftime("%m-%d %H:%M")
+            else:
+                # Fall back to original DAS time range if no microseismic data
+                das_time_min = float(das_times[0])
+                das_time_max = float(das_times[-1])
+                das_time_step = float(das_times[1] - das_times[0]) if len(das_times) > 1 else 1.0
 
-            layout_children.extend([
-                html.Div(
-                    children="DAS",
-                    style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
-                ),
-                html.Div(
-                    id='das-time-output',
-                    style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '8px'}
-                ),
-                html.Div(
-                    dcc.Slider(
-                        id='das-time-slider',
-                        min=das_time_min,
-                        max=das_time_max,
-                        value=das_time_min,
-                        marks=das_marks,
-                        step=das_time_step,
-                        tooltip={"placement": "bottom", "always_visible": True}
+                # Create marks with actual DAS time values
+                das_marks = {}
+                max_marks = 10  # Maximum number of marks to display
+                step_size = max(1, len(das_times) // max_marks)
+
+                for i in range(0, len(das_times), step_size):
+                    try:
+                        from datetime import timedelta
+                        # Convert time offset to actual datetime
+                        actual_datetime = self.DASviewer.data.start_time + timedelta(seconds=das_times[i])
+                        das_marks[float(das_times[i])] = actual_datetime.strftime("%m-%d %H:%M")
+                    except (ValueError, OSError, AttributeError):
+                        das_marks[float(das_times[i])] = f"{das_times[i]:.2f}s"
+
+            if has_das:
+                layout_children.extend([
+                    html.Div(
+                        children="Distributed Acoustic Sensing (DAS) Data",
+                        style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '16px'}
                     ),
-                    style={
-                        'width': '92%',
-                        'margin': '10px auto 20px auto',
-                        'padding': '10px',
-                        'fontSize': '16px',
-                        'whiteSpace': 'nowrap'
-                    }
-                ),
-            ])
+                    # DAS colorscale and colorbar range controls
+                    html.Div([
+                        html.Label("Colorscale:", style={'marginRight': '8px'}),
+                        dcc.Dropdown(
+                            id='das-colorscale-dropdown',
+                            options=[
+                                {'label': 'RdBu', 'value': 'RdBu'},
+                                {'label': 'Spectral', 'value': 'Spectral'},
+                                {'label': 'Coolwarm', 'value': 'Coolwarm'},
+                                {'label': 'Seismic', 'value': 'Seismic'},
+                                {'label': 'Berlin', 'value': 'Berlin'},
+                            ],
+                            value=(self.DASviewer.color_scale
+                                   if self.DASviewer and hasattr(self.DASviewer, 'color_scale')
+                                   else 'RdBu'),
+                            clearable=False,
+                            style={'width': '200px', 'marginRight': '20px'}
+                        ),
+                        html.Label("Colorbar Range:", style={'marginRight': '8px'}),
+                        dcc.Input(
+                            id='das-colorbar-min', type='number',
+                            placeholder="Auto min",
+                            style={'width': '100px', 'marginRight': '4px'},
+                            debounce=True
+                        ),
+                        dcc.Input(
+                            id='das-colorbar-max', type='number',
+                            placeholder="Auto max",
+                            style={'width': '100px', 'marginRight': '20px'},
+                            debounce=True
+                        ),
+                    ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
+                    html.Div(
+                        id='das-time-output',
+                        style={'fontWeight': 'normal', 'whiteSpace': 'nowrap', 'marginBottom': '8px'}
+                    ),
+                    html.Div(
+                        dcc.Slider(
+                            id='das-time-slider',
+                            min=das_time_min,
+                            max=das_time_max,
+                            value=das_time_min,
+                            marks=das_marks,
+                            step=das_time_step,
+                            tooltip={"placement": "bottom", "always_visible": True}
+                        ),
+                        style={
+                            'width': '92%',
+                            'margin': '20px auto',
+                            'padding': '20px',
+                            'fontSize': '16px',
+                            'whiteSpace': 'nowrap'
+                        }
+                    ),
+                ])
 
         # Continue with the rest of the layout
         layout_children.extend([
@@ -425,7 +481,7 @@ class DataViewer:
             ], style={'margin': '10px 0', 'display': 'flex', 'alignItems': 'center'}),
         ])
 
-        # Conditionally add DAS image layout based on data availability
+        # Add DAS image layout based on data availability
         if has_das and self.DASimage:
             # Main row for 3D plot and DAS image using grid layout
             layout_children.append(
@@ -484,6 +540,9 @@ class DataViewer:
             Input('colorbar-max', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
             Input('aspectmode-dropdown', 'value') if has_ms else Input('combined-3d-plot', 'relayoutData'),
             Input('das-time-slider', 'value') if has_das else Input('combined-3d-plot', 'relayoutData'),
+            Input('das-colorscale-dropdown', 'value') if has_das else Input('combined-3d-plot', 'relayoutData'),
+            Input('das-colorbar-min', 'value') if has_das else Input('combined-3d-plot', 'relayoutData'),
+            Input('das-colorbar-max', 'value') if has_das else Input('combined-3d-plot', 'relayoutData'),
             allow_duplicate=True
         )
         def update_combined_plot(*args):
@@ -492,13 +551,16 @@ class DataViewer:
                 if has_das:
                     (color_by, size_by, time_range, relayout_data, x_min, x_max,
                      y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max,
-                     aspect_mode, das_time_value) = args
+                     aspect_mode, das_time_value, das_colorscale, das_colorbar_min, das_colorbar_max) = args
                     print(f"DAS SLIDER CALLBACK TRIGGERED - DAS time value: {das_time_value}")
                 else:
                     (color_by, size_by, time_range, relayout_data, x_min, x_max,
                      y_min, y_max, z_min, z_max, colorscale, colorbar_min, colorbar_max,
                      aspect_mode) = args
                     das_time_value = None
+                    das_colorscale = None
+                    das_colorbar_min = None
+                    das_colorbar_max = None
 
                 # NOTE: CHECKPOINT for callback - troubleshooting
                 print("Dash callback triggered")
@@ -582,12 +644,54 @@ class DataViewer:
                 das_traces = []
                 if self.DASviewer is not None and has_das and das_time_value is not None:
                     try:
-                        # Convert time value to index
-                        current_das_times = self.DASviewer.data.taxis
-                        das_time_idx = np.argmin(np.abs(current_das_times - das_time_value))
+                        # Convert DAS slider value to actual DAS time
+                        if has_ms and len(times_filtered) > 0:
+                            # DAS slider is synced with MS indices - map to actual DAS time
+                            das_slider_idx = int(das_time_value)
+                            # Clamp to valid range
+                            das_slider_idx = max(0, min(das_slider_idx, len(times_filtered) - 1))
+
+                            # Get the corresponding MS time
+                            ms_time = times_filtered.iloc[das_slider_idx]
+                            print(f"DAS slider index: {das_slider_idx}, corresponding MS time: {ms_time}")
+
+                            # Find closest DAS time to this MS time
+                            # Convert MS datetime to seconds offset from DAS start time
+                            try:
+                                das_start_datetime = self.DASviewer.data.start_time
+                                time_diff = (ms_time - das_start_datetime).total_seconds()
+
+                                # Find closest DAS time index
+                                current_das_times = self.DASviewer.data.taxis
+                                das_time_idx = np.argmin(np.abs(current_das_times - time_diff))
+                                das_center_time = time_diff
+
+                                print(f"Mapped to DAS time: {das_center_time:.2f}s (index: {das_time_idx})")
+                            except Exception as e:
+                                print(f"Warning: Could not map MS time to DAS time: {e}")
+                                # Fallback: use proportional mapping
+                                das_range = len(self.DASviewer.data.taxis)
+                                ms_range = len(times_filtered)
+                                das_time_idx = int(das_slider_idx * das_range / ms_range)
+                                das_center_time = self.DASviewer.data.taxis[das_time_idx]
+                        else:
+                            # DAS slider uses actual DAS time values
+                            das_center_time = float(das_time_value)
+                            current_das_times = self.DASviewer.data.taxis
+                            das_time_idx = np.argmin(np.abs(current_das_times - das_center_time))
+                            print(f"DAS time value: {das_center_time:.2f} (index: {das_time_idx})")
 
                         # Create updated DAS 3D plot for the selected time index
-                        print(f"Updating DAS 3D plot for time value {das_time_value:.2f} (index: {das_time_idx})")
+                        print(f"Updating DAS 3D plot for time value {das_center_time:.2f} (index: {das_time_idx})")
+
+                        # Update DAS colorscale and colorbar range if provided
+                        if das_colorscale is not None:
+                            self.DASviewer.set_colorscale(das_colorscale)
+                        if das_colorbar_min is not None and das_colorbar_max is not None:
+                            self.DASviewer.set_colorbar_range([das_colorbar_min, das_colorbar_max])
+                        elif das_colorbar_min is None and das_colorbar_max is None:
+                            self.DASviewer.set_colorbar_range(None)  # Auto-range
+
                         # Check if well trajectory path is available
                         if self.well_trajectory_path is None:
                             print("Warning: No well trajectory path provided for DAS 3D plot")
@@ -690,21 +794,51 @@ class DataViewer:
             else:
                 # Handle case with no microseismic data - plot well traces and DAS
                 if has_das:
-                    relayout_data, das_time_value = args if len(args) >= 2 else (args[0] if args else None, None)
+                    if len(args) >= 5:  # Has DAS inputs
+                        (relayout_data, das_time_value, das_colorscale,
+                         das_colorbar_min, das_colorbar_max) = args[:5]
+                    else:
+                        relayout_data, das_time_value = args if len(args) >= 2 else (args[0] if args else None, None)
+                        das_colorscale = None
+                        das_colorbar_min = None
+                        das_colorbar_max = None
                     print(f"DAS SLIDER CALLBACK TRIGGERED (No MS) - DAS time value: {das_time_value}")
                 else:
                     relayout_data = args[0] if args else None
                     das_time_value = None
+                    das_colorscale = None
+                    das_colorbar_min = None
+                    das_colorbar_max = None
 
                 # Handle DAS traces if available
                 das_traces = []
                 if self.DASviewer is not None and has_das and das_time_value is not None:
                     try:
+                        # Convert time range to center time for DAS plotting
+                        if isinstance(das_time_value, list) and len(das_time_value) == 2:
+                            # Use the center of the selected range
+                            das_center_time = (das_time_value[0] + das_time_value[1]) / 2
+                            print(f"DAS range selected: {das_time_value[0]:.2f} to {das_time_value[1]:.2f}, "
+                                  f"using center: {das_center_time:.2f}")
+                        else:
+                            # Fallback for single value (backward compatibility)
+                            das_center_time = (das_time_value if not isinstance(das_time_value, list)
+                                               else das_time_value[0])
+                            print(f"DAS single time value: {das_center_time:.2f}")
+
                         # Convert time value to index
                         current_das_times = self.DASviewer.data.taxis
-                        das_time_idx = np.argmin(np.abs(current_das_times - das_time_value))
+                        das_time_idx = np.argmin(np.abs(current_das_times - das_center_time))
 
-                        print(f"Updating DAS 3D plot for time value {das_time_value:.2f} (index: {das_time_idx})")
+                        print(f"Updating DAS 3D plot for time value {das_center_time:.2f} (index: {das_time_idx})")
+
+                        # Update DAS colorscale and colorbar range if provided
+                        if das_colorscale is not None:
+                            self.DASviewer.set_colorscale(das_colorscale)
+                        if das_colorbar_min is not None and das_colorbar_max is not None:
+                            self.DASviewer.set_colorbar_range([das_colorbar_min, das_colorbar_max])
+                        elif das_colorbar_min is None and das_colorbar_max is None:
+                            self.DASviewer.set_colorbar_range(None)  # Auto-range
 
                         # Check if well trajectory path is available
                         if self.well_trajectory_path is None:
@@ -825,44 +959,59 @@ class DataViewer:
                 return min_val, max_val
 
         if has_das:
-            # DAS callback to update the waterfall image based on time slider
+            # DAS callback to update the waterfall image based on time slider and color settings
             @app.callback(
                 Output('das-image', 'src'),
                 Input('das-time-slider', 'value'),
+                Input('das-colorscale-dropdown', 'value'),
+                Input('das-colorbar-min', 'value'),
+                Input('das-colorbar-max', 'value'),
                 prevent_initial_call=False
             )
-            def update_das_image(das_time_value):
-                print(f"DAS callback triggered with time value: {das_time_value}")
+            def update_das_image(das_time_value, das_colorscale, das_colorbar_min, das_colorbar_max):
+                print(f"DAS callback triggered with time value: {das_time_value}, colorscale: {das_colorscale}")
 
                 if self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
+                    # Update DAS colorscale and colorbar range if provided
+                    if das_colorscale is not None:
+                        self.DASviewer.set_colorscale(das_colorscale)
+                    if das_colorbar_min is not None and das_colorbar_max is not None:
+                        self.DASviewer.set_colorbar_range([das_colorbar_min, das_colorbar_max])
+                    elif das_colorbar_min is None and das_colorbar_max is None:
+                        self.DASviewer.set_colorbar_range(None)  # Auto-range
+
                     # Get the time axis fresh from the DAS data
                     current_das_times = self.DASviewer.data.taxis
                     if das_time_value is not None:
-                        # Find the closest time index for the selected time value
-                        das_time_idx = np.argmin(np.abs(current_das_times - das_time_value))
-                        center_time = das_time_value
-                        print(f"DAS time slider moved to time {das_time_value:.2f}, closest index: {das_time_idx}")
+                        # Handle single value slider
+                        if has_ms and len(times_filtered) > 0:
+                            # DAS slider is synced with MS indices - map to actual DAS time
+                            das_slider_idx = int(das_time_value)
+                            # Clamp to valid range
+                            das_slider_idx = max(0, min(das_slider_idx, len(times_filtered) - 1))
 
-                        # Calculate time range for a day's worth of data on either side
-                        # Assuming time is in seconds, 1 day = 86400 seconds
-                        day_in_seconds = 86400
-                        start_time = center_time - day_in_seconds
-                        end_time = center_time + day_in_seconds
+                            # Get the corresponding MS time
+                            ms_time = times_filtered.iloc[das_slider_idx]
 
-                        # Find the closest indices for start and end times
-                        start_idx = max(0, np.searchsorted(current_das_times, start_time, side='left'))
-                        end_idx = min(len(current_das_times) - 1,
-                                      np.searchsorted(current_das_times, end_time, side='right'))
+                            # Convert MS datetime to seconds offset from DAS start time
+                            try:
+                                das_start_datetime = self.DASviewer.data.start_time
+                                center_time = (ms_time - das_start_datetime).total_seconds()
+                                print(f"DAS slider index: {das_slider_idx}, "
+                                      f"MS time: {ms_time}, DAS time: {center_time:.2f}s")
+                            except Exception as e:
+                                print(f"Warning: Could not map MS time to DAS time: {e}")
+                                # Fallback: use proportional mapping
+                                das_range = current_das_times[-1] - current_das_times[0]
+                                center_time = (das_slider_idx / len(times_filtered)) * das_range
+                        else:
+                            # DAS slider uses actual DAS time values
+                            center_time = float(das_time_value)
+                            print(f"DAS single time value: {center_time:.2f}")
 
-                        print(f"Creating waterfall for time range: "
-                              f"{current_das_times[start_idx]:.2f} to {current_das_times[end_idx]:.2f}")
-                        print(f"Index range: {start_idx} to {end_idx} (center time: {center_time:.2f})")
-
-                        # Create waterfall plot for the time range centered on selected time
+                        # Create waterfall plot with entire dataset and selected time marker
                         new_image = self.DASviewer.create_waterfall(
-                            starttime=current_das_times[start_idx],
-                            endtime=current_das_times[end_idx],
-                            selected_time=das_time_value
+                            selected_time=center_time
                         )
                         if new_image:
                             return new_image
@@ -870,7 +1019,7 @@ class DataViewer:
                             print("Warning: create_waterfall returned empty image")
                             return self.DASimage
                     else:
-                        print(f"Index {das_time_idx} out of range for DAS times (0-{len(current_das_times)-1})")
+                        print("DAS time value is None")
                         return self.DASimage
 
             # Update DAS time display
@@ -885,17 +1034,32 @@ class DataViewer:
                     try:
                         current_das_times = self.DASviewer.data.taxis
                         if selected_time is not None:
-                            # Find the closest index to the selected time
-                            time_idx = np.argmin(np.abs(current_das_times - selected_time))
-                            actual_time_offset = current_das_times[time_idx]
+                            # Handle single value slider
+                            if has_ms and len(times_filtered) > 0:
+                                # DAS slider is synced with MS indices - map to actual DAS time
+                                das_slider_idx = int(selected_time)
+                                # Clamp to valid range
+                                das_slider_idx = max(0, min(das_slider_idx, len(times_filtered) - 1))
 
-                            # Convert time offset to actual datetime using start_time
-                            from datetime import timedelta
-                            actual_datetime = self.DASviewer.data.start_time + timedelta(seconds=actual_time_offset)
-                            formatted_time = actual_datetime.strftime('%Y-%m-%d %H:%M:%S')
+                                # Get the corresponding MS time
+                                ms_time = times_filtered.iloc[das_slider_idx]
 
-                            total_steps = len(current_das_times)
-                            return f"Selected time: {formatted_time} (Index: {time_idx}/{total_steps-1})"
+                                return (f"Selected time: {ms_time.strftime('%Y-%m-%d %H:%M:%S')} "
+                                        f"(Index: {das_slider_idx}/{len(times_filtered)-1})")
+                            else:
+                                # DAS slider uses actual DAS time values
+                                single_time = float(selected_time)
+                                time_idx = np.argmin(np.abs(current_das_times - single_time))
+                                actual_time_offset = current_das_times[time_idx]
+
+                                # Convert time offset to actual datetime using start_time
+                                from datetime import timedelta
+                                actual_datetime = (self.DASviewer.data.start_time +
+                                                   timedelta(seconds=actual_time_offset))
+                                formatted_time = actual_datetime.strftime('%Y-%m-%d %H:%M:%S')
+
+                                total_steps = len(current_das_times)
+                                return f"Selected time: {formatted_time} (Index: {time_idx}/{total_steps-1})"
                         else:
                             return "No time selected"
                     except Exception as e:
@@ -903,6 +1067,25 @@ class DataViewer:
                         return f"Error: {str(e)}"
                 else:
                     return "DAS time: No data available"
+
+            # Update DAS colorbar range placeholders based on data
+            @app.callback(
+                Output('das-colorbar-min', 'placeholder'),
+                Output('das-colorbar-max', 'placeholder'),
+                Input('das-time-slider', 'value')
+            )
+            def update_das_colorbar_placeholders(das_time_value):
+                if self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
+                    try:
+                        # Get data range for placeholder values
+                        data_min = float(self.DASviewer.data.data.min())
+                        data_max = float(self.DASviewer.data.data.max())
+                        return f"{data_min:.2f}", f"{data_max:.2f}"
+                    except Exception as e:
+                        print(f"Error getting DAS data range: {e}")
+                        return "Auto min", "Auto max"
+                else:
+                    return "Auto min", "Auto max"
 
         # Always register DAS callbacks if DAS components exist in layout
         # This needs to be outside the has_das condition to avoid callback registration issues

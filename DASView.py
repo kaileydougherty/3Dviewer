@@ -19,7 +19,7 @@ class DASPlot:
     def __init__(self):
         self.data = None
         self.well = None
-        self.color_scale = 'RdBu'  # Default color scale
+        self.color_scale = 'RdBu_r'  # Default color scale
         self.colorbar_range = None
         self.downsample = [5, 5]  # Default downsampling for waterfall plot [time, depth]
 
@@ -85,10 +85,12 @@ class DASPlot:
 
         # Dropdown for colorscale selection
         colorscale_mapping = {
-            'RdBu': 'RdBu',
-            'Spectral': 'Spectral',
-            'Coolwarm': 'coolwarm',
-            'Seismic': 'seismic'
+            {'label': 'RdBu_r', 'value': 'RdBu_r'},
+            {'label': 'RdBu', 'value': 'RdBu'},
+            {'label': 'Spectral', 'value': 'Spectral'},
+            {'label': 'Coolwarm', 'value': 'Coolwarm'},
+            {'label': 'Seismic', 'value': 'Seismic'},
+            {'label': 'Berlin', 'value': 'Berlin'}
         }
 
         # Get the corresponding matplotlib colormap

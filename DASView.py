@@ -45,6 +45,21 @@ class DASPlot:
         """
         self.colorbar_range = colorbar_range
 
+    def get_colorbar_range(self):
+        """
+        Get the colorbar range for consistent use across waterfall and 3D plots.
+
+        Returns
+        -------
+        tuple
+            (cmin, cmax) values for the colorbar range
+        """
+        if self.colorbar_range and len(self.colorbar_range) == 2:
+            return float(self.colorbar_range[0]), float(self.colorbar_range[1])
+        else:
+            # Use auto-settings based on entire dataset for consistency
+            return float(self.data.data.min()), float(self.data.data.max())
+
     def set_downsample(self, downsample):
         """
         Set the downsampling factors for the waterfall plot.
@@ -68,6 +83,18 @@ class DASPlot:
     def create_waterfall(self, starttime=None, endtime=None, time_index=None, selected_time=None):
         plt.figure()
 
+        # Dropdown for colorscale selection
+        colorscale_mapping = {
+            'RdBu': 'RdBu',
+            'Spectral': 'Spectral',
+            'Coolwarm': 'coolwarm',
+            'Seismic': 'seismic'
+        }
+
+        # Get the corresponding matplotlib colormap
+        matplotlib_cmap_name = colorscale_mapping.get(self.color_scale, 'RdBu_r')
+        matplotlib_cmap = plt.get_cmap(matplotlib_cmap_name)
+
         if time_index is not None:
             # Create a time slice plot instead of full waterfall
             if hasattr(self.data, 'data') and hasattr(self.data, 'taxis'):
@@ -80,18 +107,19 @@ class DASPlot:
                 plt.grid(True, alpha=0.3)
             else:
                 # Fallback to regular waterfall if data structure is different
-                self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True)
+                self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True, cmap=matplotlib_cmap)
+                # Apply consistent colorbar range for fallback waterfall
+                plt.colorbar()
+                cmin, cmax = self.get_colorbar_range()
+                plt.clim([cmin, cmax])
         else:
-            # Full waterfall plot
-            self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True)
+            # Full waterfall plot with specified colormap
+            self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True, cmap=matplotlib_cmap)
             plt.colorbar()
 
-            # Apply the same colorbar range as the plotting object
-            if self.colorbar_range and len(self.colorbar_range) == 2:
-                plt.clim(self.colorbar_range)
-            else:
-                # Use auto-settings based on entire dataset
-                plt.clim([self.data.data.min(), self.data.data.max()])
+            # Apply the same colorbar range as the 3D plotting object
+            cmin, cmax = self.get_colorbar_range()
+            plt.clim([cmin, cmax])
 
         # Add vertical red line at selected time position
         if selected_time is not None:
@@ -199,14 +227,8 @@ class DASPlot:
                 # For flattened data, repeat or subsample as needed
                 signal = np.tile(signal, len(x_das) // len(signal) + 1)[:len(x_das)]
 
-        # Determine colorbar range
-        # Check if the user inputted a tuple of length 2
-        if self.colorbar_range and len(self.colorbar_range) == 2:
-            cmin, cmax = self.colorbar_range
-        # If not, use auto-settings based on entire dataset
-        else:
-            cmin = self.data.data.min()
-            cmax = self.data.data.max()
+        # Determine colorbar range (consistent for both waterfall and 3D plots)
+        cmin, cmax = self.get_colorbar_range()
 
         das_trace = go.Scatter3d(
             x=x_das,

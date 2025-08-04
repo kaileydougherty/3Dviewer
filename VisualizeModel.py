@@ -55,10 +55,11 @@ class DataViewer:
     set_title(title)
         Set the title for the visualization. Default is 'Seismic and Well Trajectory Viewer.'
 
-    run_dash_app()
+    run_dash_app(host="127.0.0.1", port=8050)
         Runs the Dash web application for visualizing microseismic and well data.
         Provides interactive controls for filtering by time, color, size, axis ranges, and aspect ratio.
         Preserves user camera/zoom settings between updates.
+
     """
     def __init__(self, MS_obj=None, well_objs=None, DAS_obj=None, DAS_image=None,
                  DAS_viewer=None, well_trajectory_path=None):
@@ -103,7 +104,7 @@ class DataViewer:
     def set_title(self, title):
         self.title = title
 
-    def run_dash_app(self):
+    def run_dash_app(self, host="127.0.0.1", port=8050):
         """
         Run the Dash web application for visualizing microseismic and well data.
 
@@ -114,6 +115,13 @@ class DataViewer:
         - Inputs for axis ranges and aspect ratio.
         - A 3D Plotly graph showing microseismic events and well trajectories.
         - Preservation of user camera/zoom settings between updates.
+
+        Parameters
+        ----------
+        host : str, optional
+            The host address to run the Dash app on, by default "127.0.0.1"
+        port : int, optional
+            The port number to run the Dash app on, by default 8050
 
         Returns
         -------
@@ -1108,9 +1116,7 @@ class DataViewer:
         else:
             print("No microseismic data available for time range display")
 
-        # Define host and port
-        host = "127.0.0.1"
-        port = 8050
+        # Use provided host and port parameters
         print(f"Dash app running at http://{host}:{port}")
 
         # Run the app with specified host and port

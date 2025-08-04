@@ -6,6 +6,7 @@
 # Import needed libraries
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 from scipy.interpolate import interp1d
 import plotly.graph_objects as go
 import pandas as pd
@@ -57,7 +58,6 @@ class DASPlot:
         self.downsample = downsample
 
     def load_h5(self, pylib, filepath):
-        import sys  # ASK: Where to put this import? Usually at top, but never used another's library
         sys.path.append(pylib)
         from JIN_pylib import Data2D_XT
 
@@ -65,7 +65,7 @@ class DASPlot:
         print('Success!')
         return True
 
-    def create_waterfall(self, starttime=None, endtime=None, time_index=None):
+    def create_waterfall(self, starttime=None, endtime=None, time_index=None, selected_time=None):
         plt.figure()
 
         if time_index is not None:
@@ -85,13 +85,35 @@ class DASPlot:
             # Full waterfall plot
             self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True)
             plt.colorbar()
-  
+
             # Apply the same colorbar range as the plotting object
             if self.colorbar_range and len(self.colorbar_range) == 2:
                 plt.clim(self.colorbar_range)
             else:
                 # Use auto-settings based on entire dataset
                 plt.clim([self.data.data.min(), self.data.data.max()])
+
+        # Add vertical red line at selected time position
+        if selected_time is not None:
+            try:
+                from datetime import timedelta
+                import matplotlib.dates as mdates
+
+                # Convert selected time offset to actual datetime
+                selected_datetime = self.data.start_time + timedelta(seconds=selected_time)
+
+                # Convert datetime to matplotlib date number (required for axvline with datetime axis)
+                selected_datenum = mdates.date2num(selected_datetime)
+
+                # Add vertical line at the selected time
+                plt.axvline(x=selected_datenum, color='red', linewidth=3, linestyle='-',
+                            alpha=0.9, label='Selected Time')
+                plt.legend(loc='upper right')
+                print(f"Added red line at datetime: {selected_datetime} (datenum: {selected_datenum})")
+            except Exception as e:
+                print(f"Warning: Could not add time marker line: {e}")
+                import traceback
+                traceback.print_exc()
 
         # Save the figure to a BytesIO buffer
         buf = io.BytesIO()

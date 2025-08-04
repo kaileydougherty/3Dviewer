@@ -1,7 +1,7 @@
 # Create a 3D visualization to show distributed acoustic sensing data and microseismic events with well trajectories.
 # Author: Kailey Dougherty
 # Date created: 24-FEB-2025
-# Date last modified: 29-JUL-2025
+# Date last modified: 04-AUG-2025
 
 # Import needed libraries
 import dash
@@ -345,7 +345,7 @@ class DataViewer:
             das_time_min = float(das_times[0])
             das_time_max = float(das_times[-1])
             das_time_step = float(das_times[1] - das_times[0]) if len(das_times) > 1 else 1.0
-            
+
             # Limit the number of marks for performance - show only every N-th time step
             max_marks = 10  # Maximum number of marks to display
             step_size = max(1, len(das_times) // max_marks)
@@ -439,7 +439,7 @@ class DataViewer:
                         html.Div([
                             html.H2("DAS", style={'textAlign': 'center'}),
                             html.Img(src=self.DASimage, id='das-image', style={
-                                'width': '300px', 'height': '300px', 'display': 'block', 'margin': 'auto'
+                                'width': '500px', 'height': '400px', 'display': 'block', 'margin': 'auto'
                             })
                         ], style={'width': '85%', 'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'})
                     ],
@@ -585,7 +585,7 @@ class DataViewer:
                         # Convert time value to index
                         current_das_times = self.DASviewer.data.taxis
                         das_time_idx = np.argmin(np.abs(current_das_times - das_time_value))
-                        
+
                         # Create updated DAS 3D plot for the selected time index
                         print(f"Updating DAS 3D plot for time value {das_time_value:.2f} (index: {das_time_idx})")
                         # Check if well trajectory path is available
@@ -686,7 +686,7 @@ class DataViewer:
                     fig.update_layout(scene_camera=relayout_data['scene.camera'])
 
                 return fig
-          
+
             else:
                 # Handle case with no microseismic data - plot well traces and DAS
                 if has_das:
@@ -695,7 +695,7 @@ class DataViewer:
                 else:
                     relayout_data = args[0] if args else None
                     das_time_value = None
-         
+
                 # Handle DAS traces if available
                 das_traces = []
                 if self.DASviewer is not None and has_das and das_time_value is not None:
@@ -703,9 +703,9 @@ class DataViewer:
                         # Convert time value to index
                         current_das_times = self.DASviewer.data.taxis
                         das_time_idx = np.argmin(np.abs(current_das_times - das_time_value))
-                        
+
                         print(f"Updating DAS 3D plot for time value {das_time_value:.2f} (index: {das_time_idx})")
-                      
+
                         # Check if well trajectory path is available
                         if self.well_trajectory_path is None:
                             print("Warning: No well trajectory path provided for DAS 3D plot")
@@ -716,7 +716,7 @@ class DataViewer:
                                 well_traj=self.well_trajectory_path,
                                 time_index=das_time_idx
                             )
-                    
+
                         if das_plot is not None:
                             das_traces = [das_plot]
                     except Exception as e:
@@ -725,17 +725,17 @@ class DataViewer:
                             das_traces = [self.DASobj]
                 elif self.DASobj is not None:
                     das_traces = [self.DASobj]
-              
+
                 well_traces = self.well_objs if has_well else []
-             
+
                 # Combine all traces
                 all_traces = []
                 all_traces.extend(well_traces)
                 all_traces.extend(das_traces)
                 all_traces = [trace for trace in all_traces if trace is not None]
-               
+
                 fig = go.Figure(data=all_traces)
-               
+
                 # Adjust colorbar positions for DAS traces to prevent overlap
                 for trace in fig.data:
                     if hasattr(trace, 'marker') and hasattr(trace.marker, 'colorbar') and trace.name == 'DAS Signal':
@@ -746,7 +746,7 @@ class DataViewer:
                             y=0.40,  # Same y position as MS colorbar for alignment
                             yanchor='middle'
                         )
-               
+
                 # Set layout to be consistent
                 fig.update_layout(
                     height=700,
@@ -788,7 +788,7 @@ class DataViewer:
         if has_ms:
             # Get reference to sorted times for callbacks
             sorted_times = pd.to_datetime(self.MSobj.data['Origin DateTime']).sort_values().reset_index(drop=True)
-        
+
             # Update time range message based on slider movement
             @app.callback(
                 Output('slider-range-output', 'children'),
@@ -833,7 +833,7 @@ class DataViewer:
             )
             def update_das_image(das_time_value):
                 print(f"DAS callback triggered with time value: {das_time_value}")
-               
+
                 if self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
                     # Get the time axis fresh from the DAS data
                     current_das_times = self.DASviewer.data.taxis
@@ -842,26 +842,27 @@ class DataViewer:
                         das_time_idx = np.argmin(np.abs(current_das_times - das_time_value))
                         center_time = das_time_value
                         print(f"DAS time slider moved to time {das_time_value:.2f}, closest index: {das_time_idx}")
-                       
+
                         # Calculate time range for a day's worth of data on either side
                         # Assuming time is in seconds, 1 day = 86400 seconds
                         day_in_seconds = 86400
                         start_time = center_time - day_in_seconds
                         end_time = center_time + day_in_seconds
-                       
+
                         # Find the closest indices for start and end times
                         start_idx = max(0, np.searchsorted(current_das_times, start_time, side='left'))
                         end_idx = min(len(current_das_times) - 1,
                                       np.searchsorted(current_das_times, end_time, side='right'))
-                       
+
                         print(f"Creating waterfall for time range: "
                               f"{current_das_times[start_idx]:.2f} to {current_das_times[end_idx]:.2f}")
                         print(f"Index range: {start_idx} to {end_idx} (center time: {center_time:.2f})")
-                       
+
                         # Create waterfall plot for the time range centered on selected time
                         new_image = self.DASviewer.create_waterfall(
                             starttime=current_das_times[start_idx],
-                            endtime=current_das_times[end_idx]
+                            endtime=current_das_times[end_idx],
+                            selected_time=das_time_value
                         )
                         if new_image:
                             return new_image
@@ -879,7 +880,7 @@ class DataViewer:
             )
             def update_das_time_output(selected_time):
                 print(f"DAS time output callback triggered with time: {selected_time}")
-              
+
                 if self.DASviewer is not None and hasattr(self.DASviewer, 'data'):
                     try:
                         current_das_times = self.DASviewer.data.taxis
@@ -887,12 +888,12 @@ class DataViewer:
                             # Find the closest index to the selected time
                             time_idx = np.argmin(np.abs(current_das_times - selected_time))
                             actual_time_offset = current_das_times[time_idx]
-                            
+
                             # Convert time offset to actual datetime using start_time
                             from datetime import timedelta
                             actual_datetime = self.DASviewer.data.start_time + timedelta(seconds=actual_time_offset)
                             formatted_time = actual_datetime.strftime('%Y-%m-%d %H:%M:%S')
-                            
+
                             total_steps = len(current_das_times)
                             return f"Selected time: {formatted_time} (Index: {time_idx}/{total_steps-1})"
                         else:
@@ -907,7 +908,7 @@ class DataViewer:
         # This needs to be outside the has_das condition to avoid callback registration issues
         if has_das and len(das_times) > 0:
             print(f"Registering DAS callbacks for {len(das_times)} time steps")
-       
+
         # Register DAS callbacks only if DAS slider was added to layout
         try:
             # This will only work if the DAS slider components were added to the layout

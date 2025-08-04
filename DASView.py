@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 29-JUL-2025
+# Date last modified: 04-AUG-2025
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -20,6 +20,7 @@ class DASPlot:
         self.well = None
         self.color_scale = 'RdBu'  # Default color scale
         self.colorbar_range = None
+        self.downsample = [5, 5]  # Default downsampling for waterfall plot [time, depth]
 
     def set_colorscale(self, color_scale):
         """
@@ -42,6 +43,18 @@ class DASPlot:
             The min and max values for the colorbar. If None, auto-range will be used.
         """
         self.colorbar_range = colorbar_range
+
+    def set_downsample(self, downsample):
+        """
+        Set the downsampling factors for the waterfall plot.
+
+        Parameters
+        ----------
+        downsample : list or tuple of length 2
+            The downsampling factors [time_factor, depth_factor] for the waterfall plot.
+            Higher values mean more downsampling (faster but lower resolution).
+        """
+        self.downsample = downsample
 
     def load_h5(self, pylib, filepath):
         import sys  # ASK: Where to put this import? Usually at top, but never used another's library
@@ -67,13 +80,18 @@ class DASPlot:
                 plt.grid(True, alpha=0.3)
             else:
                 # Fallback to regular waterfall if data structure is different
-                self.data.plot_waterfall(downsample=[5, 5], use_timestamp=True)
+                self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True)
         else:
-            # Original waterfall plot
-            self.data.plot_waterfall(downsample=[5, 5], use_timestamp=True)
+            # Full waterfall plot
+            self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True)
             plt.colorbar()
-            cx = np.array([-1, 1])
-            plt.clim(cx * 3000)
+  
+            # Apply the same colorbar range as the plotting object
+            if self.colorbar_range and len(self.colorbar_range) == 2:
+                plt.clim(self.colorbar_range)
+            else:
+                # Use auto-settings based on entire dataset
+                plt.clim([self.data.data.min(), self.data.data.max()])
 
         # Save the figure to a BytesIO buffer
         buf = io.BytesIO()

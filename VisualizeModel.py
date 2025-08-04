@@ -404,6 +404,7 @@ class DataViewer:
                         dcc.Dropdown(
                             id='das-colorscale-dropdown',
                             options=[
+                                {'label': 'RdBu_r', 'value': 'RdBu_r'},
                                 {'label': 'RdBu', 'value': 'RdBu'},
                                 {'label': 'Spectral', 'value': 'Spectral'},
                                 {'label': 'Coolwarm', 'value': 'Coolwarm'},
@@ -412,7 +413,7 @@ class DataViewer:
                             ],
                             value=(self.DASviewer.color_scale
                                    if self.DASviewer and hasattr(self.DASviewer, 'color_scale')
-                                   else 'RdBu'),
+                                   else 'RdBu_r'),
                             clearable=False,
                             style={'width': '200px', 'marginRight': '20px'}
                         ),

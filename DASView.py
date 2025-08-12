@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 04-AUG-2025
+# Date last modified: 11-AUG-2025
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -85,12 +85,12 @@ class DASPlot:
 
         # Dropdown for colorscale selection
         colorscale_mapping = {
-            {'label': 'RdBu_r', 'value': 'RdBu_r'},
-            {'label': 'RdBu', 'value': 'RdBu'},
-            {'label': 'Spectral', 'value': 'Spectral'},
-            {'label': 'Coolwarm', 'value': 'Coolwarm'},
-            {'label': 'Seismic', 'value': 'Seismic'},
-            {'label': 'Berlin', 'value': 'Berlin'}
+            'RdBu_r': 'RdBu_r',
+            'RdBu': 'RdBu',
+            'Spectral': 'Spectral',
+            'Coolwarm': 'coolwarm',
+            'Seismic': 'seismic',
+            'Berlin': 'berlin'
         }
 
         # Get the corresponding matplotlib colormap

@@ -504,7 +504,7 @@ class DataViewer:
                         html.Div([
                             html.H2("DAS", style={'textAlign': 'center'}),
                             html.Img(src=self.DASimage, id='das-image', style={
-                                'width': '500px', 'height': '400px', 'display': 'block', 'margin': 'auto'
+                                'width': '450px', 'height': '400px', 'display': 'block', 'margin': 'auto'
                             })
                         ], style={'width': '85%', 'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'})
                     ],
@@ -587,7 +587,7 @@ class DataViewer:
                     # Set layout to be consistent
                     fig.update_layout(
                         height=700,
-                        width=1000,  # Reverted back to original width
+                        width=1000,
                         scene=dict(
                             xaxis_title="Easting (ft)",
                             yaxis_title="Northing (ft)",
@@ -763,7 +763,7 @@ class DataViewer:
 
                 fig.update_layout(
                     height=700,
-                    width=1000,  # Reverted back to original width
+                    width=1000,
                     scene=dict(
                         xaxis_title="Easting (ft)",
                         yaxis_title="Northing (ft)",
@@ -893,7 +893,7 @@ class DataViewer:
                 # Set layout to be consistent
                 fig.update_layout(
                     height=700,
-                    width=1000,  # Reverted back to original width
+                    width=1000,
                     scene=dict(
                         xaxis_title="Easting (ft)",
                         yaxis_title="Northing (ft)",

@@ -1,13 +1,12 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 27-OCT-2025
+# Date last modified: 08-JAN-2025
 
 # Import needed libraries
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-from scipy.interpolate import interp1d
 import plotly.graph_objects as go
 import pandas as pd
 import io
@@ -167,50 +166,23 @@ class DASPlot:
 
         return image
 
-    def create_plot(self, well_traj=None, time_index=None, depth_offset=None):
+    def create_plot(self, well_traj=None, time_index=None, depth_offset=None, selected_time=None):
         # well_df: DataFrame with columns 'Referenced Northing (ft)', 'Referenced Easting (ft)', 'TVDSS (ft)'
         # time_index: specific time index for DAS data (if None, uses full data)
+        # selected_time: datetime string to find corresponding time index
 
-        # Read well trajectory as pandas dataframe to map
-        self.well = pd.read_csv(well_traj) if well_traj else None
-        well_df = self.well
+        # If selected_time is provided, find the corresponding time index
+        if selected_time is not None and time_index is None:
+            time_index = self._find_nearest_das_time_index(selected_time, verbose=True)
+            if time_index is not None:
+                print(f"Using time index {time_index} for selected time '{selected_time}'")
+            else:
+                print(f"Warning: Could not find valid time index for '{selected_time}', using full data")
 
-        # Sort well trajectory by depth (important for interp1d)
-        well_df = well_df.sort_values('TVDSS (ft)')
-
-        # Calculate cumulative distance along well trajectory
-        x_well = well_df['Referenced Easting (ft)'].values
-        y_well = well_df['Referenced Northing (ft)'].values
-        z_well = well_df['TVDSS (ft)'].values
-
-        # Calculate 3D distances between consecutive points
-        dx = np.diff(x_well)
-        dy = np.diff(y_well)
-        dz = np.diff(z_well)
-        segment_distances = np.sqrt(dx**2 + dy**2 + dz**2)
-
-        # Cumulative distance along wellbore (starting from 0)
-        cumulative_distance = np.concatenate([[0], np.cumsum(segment_distances)])
-
-        print(f"Well trajectory distance range: 0 to {cumulative_distance[-1]:.1f} ft")
-
-        # DAS fiber positions - convert from daxis to distance along wellbore
-        # Assuming DAS daxis represents distance along fiber (originally in meters)
-        das_distances_ft = self.data.daxis * 3.28084  # Convert to feet
-
-        # Clip DAS distances to well trajectory range
-        max_well_distance = cumulative_distance[-1]
-        das_distances_ft = np.clip(das_distances_ft, 0, max_well_distance)
-
-        # Interpolate well trajectory coordinates based on distance along wellbore
-        x_interp = interp1d(cumulative_distance, x_well, bounds_error=False, fill_value="extrapolate")
-        y_interp = interp1d(cumulative_distance, y_well, bounds_error=False, fill_value="extrapolate")
-        z_interp = interp1d(cumulative_distance, z_well, bounds_error=False, fill_value="extrapolate")
-
-        # Map DAS positions to 3D coordinates based on distance along wellbore
-        x_das = x_interp(das_distances_ft)
-        y_das = y_interp(das_distances_ft)
-        z_das = z_interp(das_distances_ft)
+        # Map DAS positions using existing coordinates
+        x_das = self.data.x
+        y_das = self.data.y
+        z_das = self.data.z
 
         # FOR TROUBLE-SHOOTING - Print DAS data ranges
         print(f"DAS x range: {x_das.min()} to {x_das.max()}")
@@ -218,17 +190,19 @@ class DASPlot:
         print(f"DAS z range: {z_das.min()} to {z_das.max()}")
 
         # Create DAS signal scatter trace
-        if time_index is not None and hasattr(self.data.taxis, 'data'):
+        if time_index is not None and hasattr(self.data, 'data'):
             # Use specific time slice
             if time_index < self.data.data.shape[1]:  # Check bounds
                 signal = self.data.data[:, time_index]  # Get data at specific time index
-                print(f"Using DAS time slice at index {time_index}")
+                actual_time = self.data.taxis[time_index] if hasattr(self.data, 'taxis') else time_index
+                print(f"Using DAS time slice at index {time_index} (time: {actual_time})")
             else:
                 print(f"Warning: time_index {time_index} out of bounds, using flattened data")
                 signal = self.data.data.flatten()
         else:
             # Use all data (flattened)
             signal = self.data.data.flatten()
+            print("Using flattened DAS data (all times)")
 
         # Ensure signal array matches coordinate arrays
         if len(signal) != len(x_das):
@@ -242,6 +216,14 @@ class DASPlot:
 
         # Determine colorbar range (consistent for both waterfall and 3D plots)
         cmin, cmax = self.get_colorbar_range()
+
+        # Create trace name with time information if available
+        trace_name = 'DAS Signal'
+        if time_index is not None and hasattr(self.data, 'taxis'):
+            actual_time = self.data.taxis[time_index]
+            trace_name = f'DAS Signal (t={actual_time:.3f}s)'
+        elif selected_time is not None:
+            trace_name = f'DAS Signal ({selected_time})'
 
         das_trace = go.Scatter3d(
             x=x_das,
@@ -258,7 +240,141 @@ class DASPlot:
                 cmax=cmax,
                 line=dict(width=0)
             ),
-            name='DAS Signal'
+            name=trace_name
         )
 
         return das_trace
+
+    def find_nearest_das_time_index(self, target_time, verbose=True):
+        """
+        Find the nearest DAS time index for a given datetime string or numeric time.
+       
+        Parameters:
+        -----------
+        target_time : str, float, or int
+            Target time as datetime string or numeric seconds
+        verbose : bool
+            Whether to print matching information
+
+        Returns:
+        --------
+        int or None
+            Nearest time index, or None if matching fails
+        """
+        if self.data is None:
+            if verbose:
+                print("Warning: No DAS data available for time matching")
+            return None
+            
+        try:            
+            if isinstance(target_time, str):
+                # Handle datetime string
+                target_datetime = pd.to_datetime(target_time)
+                
+                # Check which datetime attribute exists in the data
+                if hasattr(self.data, 'datetime'):
+                    das_datetimes = pd.to_datetime(self.data.datetime)
+                elif hasattr(self.data, 'start_time') and hasattr(self.data, 'taxis'):
+                    # Convert from start_time + taxis seconds offset
+                    das_start_time = pd.to_datetime(self.data.start_time)
+                    time_offsets = pd.to_timedelta(self.data.taxis, unit='s')
+                    das_datetimes = pd.DatetimeIndex(das_start_time + time_offsets)
+                else:
+                    if verbose:
+                        available_attrs = dir(self.data)
+                        print("Warning: Cannot find datetime information in DAS data.")
+                        print(f"Available attributes: {available_attrs}")
+                    return None
+                
+                # Find nearest time index with validation
+                time_diffs = np.abs(das_datetimes - target_datetime)
+                time_index = np.argmin(time_diffs)
+                
+                if verbose:
+                    closest_datetime = das_datetimes[time_index]
+                    time_diff_seconds = time_diffs[time_index].total_seconds()
+                    
+                    print(f"Datetime '{target_time}' -> nearest DAS time '{closest_datetime}'")
+                    print(f"Index: {time_index}")
+                    print(f"Time difference: {time_diff_seconds:.3f} seconds")
+                    
+                    # Warn if the match is far from requested time
+                    if time_diff_seconds > 60:  # More than 1 minute difference
+                        print(f"Warning: Nearest DAS time is {time_diff_seconds:.1f}s away from requested time")
+                
+                return time_index
+                
+            elif isinstance(target_time, (int, float)):
+                # Handle numeric time (seconds offset)
+                current_das_times = self.data.taxis
+                time_index = np.argmin(np.abs(current_das_times - target_time))
+                
+                if verbose:
+                    actual_time = current_das_times[time_index]
+                    time_diff = abs(actual_time - target_time)
+                    print(f"Numeric time {target_time:.2f}s -> nearest DAS time {actual_time:.2f}s")
+                    print(f"Index: {time_index}")
+                    if time_diff > 1.0:  # More than 1 second difference
+                        print(f"Time difference: {time_diff:.3f} seconds")
+                
+                return time_index
+                
+            else:
+                if verbose:
+                    print(f"Warning: Unsupported time format: {type(target_time)}")
+                return None
+                
+        except Exception as e:
+            if verbose:
+                print(f"Warning: Could not match time '{target_time}': {e}")
+            return None
+
+    def get_das_time_range(self):
+        """
+        Get the available time range in the loaded DAS data.
+        
+        Returns:
+        --------
+        dict or None
+            Dictionary with 'start', 'end', 'duration_hours' keys, or None if no DAS data
+        """
+        if self.data is None:
+            print("No DAS data available")
+            return None
+            
+        try:
+            # Check which datetime attribute exists in the data
+            if hasattr(self.data, 'datetime'):
+                das_datetimes = pd.to_datetime(self.data.datetime)
+            elif hasattr(self.data, 'start_time') and hasattr(self.data, 'taxis'):
+                # Convert from start_time + taxis seconds offset
+                das_start_time = pd.to_datetime(self.data.start_time)
+                time_offsets = pd.to_timedelta(self.data.taxis, unit='s')
+                das_datetimes = pd.DatetimeIndex(das_start_time + time_offsets)
+            else:
+                print("Warning: Cannot find datetime information in DAS data for time range calculation")
+                return None
+            
+            start_time = das_datetimes.min()
+            end_time = das_datetimes.max()
+            duration = end_time - start_time
+            
+            time_range = {
+                'start': start_time,
+                'end': end_time,
+                'duration_hours': duration.total_seconds() / 3600,
+                'total_samples': len(das_datetimes)
+            }
+            
+            print("DAS Data Time Range:")
+            print(f"  Start: {start_time}")
+            print(f"  End: {end_time}")
+            print(f"  Duration: {duration.total_seconds():.1f} seconds")
+            print(f"  ({time_range['duration_hours']:.2f} hours)")
+            print(f"  Total samples: {time_range['total_samples']:,}")
+            
+            return time_range
+            
+        except Exception as e:
+            print(f"Error getting DAS time range: {e}")
+            return None

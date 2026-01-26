@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 08-JAN-2025
+# Date last modified: 26-JAN-2026
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -16,11 +16,12 @@ import base64
 class DASPlot:
 
     def __init__(self):
-        self.data = None
+        self.data = []               # Placeholder for DAS data object, written in list for multiple entries
+        self.labels = []             # Labels for each DAS dataset
         self.well = None
         self.color_scale = 'RdBu_r'  # Default color scale
         self.colorbar_range = None
-        self.downsample = [5, 5]  # Default downsampling for waterfall plot [time, depth]
+        self.downsample = [5, 5]     # Default downsampling for waterfall plot [time, depth]
 
     def set_colorscale(self, color_scale):
         """
@@ -71,15 +72,30 @@ class DASPlot:
         """
         self.downsample = downsample
 
-    def load_h5(self, pylib, filepath):
+    def add_data(self, data):
+        self.data.append(data)
+
+    def load_h5(self, pylib, filepaths, labels=None):
         sys.path.append(pylib)
         from JIN_pylib import Data2D_XT
 
-        self.data = Data2D_XT.load_h5(filepath)
+        for i, fpath in enumerate(filepaths):
+            data_obj = Data2D_XT.load_h5(fpath)
+            self.data.append(data_obj)
+
+        # Store labels (use provided labels or generate default ones)
+        if labels:
+            self.labels = labels
+        else:
+            self.labels = [f'DAS {i+1}' for i in range(len(filepaths))]
+
         print('Success!')
+        print(self.data)
         return True
 
     def create_waterfall(self, starttime=None, endtime=None, time_index=None, selected_time=None):
+        # UPDATE THIS TO USE WATERFALL PLOT FUNCTION RATHER THAN IMAGE
+
         plt.figure()
 
         # Dropdown for colorscale selection
@@ -166,65 +182,62 @@ class DASPlot:
 
         return image
 
-    def create_plot(self, well_traj=None, time_index=None, depth_offset=None, selected_time=None):
-        # well_df: DataFrame with columns 'Referenced Northing (ft)', 'Referenced Easting (ft)', 'TVDSS (ft)'
-        # time_index: specific time index for DAS data (if None, uses full data)
-        # selected_time: datetime string to find corresponding time index
+    def _create_single_trace(self, data_obj, label, time_index=None, selected_time=None):
+        """
+        Create a single DAS trace from one data object.
+       
+        Parameters
+        ----------
+        data_obj : Data2D object
+            Single DAS data object to visualize
+        label : str
+            Name/label for this trace
+        time_index : int, optional
+            Specific time index to plot
+        selected_time : str, optional
+            Datetime string to find time index
+            
+        Returns
+        -------
+        go.Scatter3d
+            Plotly 3D scatter trace
+        """
 
         # If selected_time is provided, find the corresponding time index
         if selected_time is not None and time_index is None:
             time_index = self._find_nearest_das_time_index(selected_time, verbose=True)
             if time_index is not None:
                 print(f"Using time index {time_index} for selected time '{selected_time}'")
-            else:
-                print(f"Warning: Could not find valid time index for '{selected_time}', using full data")
 
         # Map DAS positions using existing coordinates
-        x_das = self.data.x
-        y_das = self.data.y
-        z_das = self.data.z
+        x_das = data_obj.x
+        y_das = data_obj.y
+        z_das = data_obj.z
 
-        # FOR TROUBLE-SHOOTING - Print DAS data ranges
-        print(f"DAS x range: {x_das.min()} to {x_das.max()}")
-        print(f"DAS y range: {y_das.min()} to {y_das.max()}")
-        print(f"DAS z range: {z_das.min()} to {z_das.max()}")
-
-        # Create DAS signal scatter trace
-        if time_index is not None and hasattr(self.data, 'data'):
-            # Use specific time slice
-            if time_index < self.data.data.shape[1]:  # Check bounds
-                signal = self.data.data[:, time_index]  # Get data at specific time index
-                actual_time = self.data.taxis[time_index] if hasattr(self.data, 'taxis') else time_index
-                print(f"Using DAS time slice at index {time_index} (time: {actual_time})")
+        # Get signal data
+        if time_index is not None and hasattr(data_obj, 'data'):
+            if time_index < data_obj.data.shape[1]:
+                signal = data_obj.data[:, time_index]
+                actual_time = data_obj.taxis[time_index] if hasattr(data_obj, 'taxis') else time_index
+                trace_name = f'{label} (t={actual_time:.3f}s)'
             else:
-                print(f"Warning: time_index {time_index} out of bounds, using flattened data")
-                signal = self.data.data.flatten()
+                signal = data_obj.data.flatten()
+                trace_name = label
         else:
-            # Use all data (flattened)
-            signal = self.data.data.flatten()
-            print("Using flattened DAS data (all times)")
-
-        # Ensure signal array matches coordinate arrays
+            signal = data_obj.data.flatten()
+            trace_name = label
+        
+        # Ensure signal length matches coordinates
         if len(signal) != len(x_das):
-            print(f"Warning: Signal length ({len(signal)}) doesn't match coordinate length ({len(x_das)})")
-            # If using time slice, signal should match depth dimension
             if time_index is not None:
-                signal = signal[:len(x_das)]  # Truncate if necessary
+                signal = signal[:len(x_das)]
             else:
-                # For flattened data, repeat or subsample as needed
                 signal = np.tile(signal, len(x_das) // len(signal) + 1)[:len(x_das)]
-
-        # Determine colorbar range (consistent for both waterfall and 3D plots)
+        
+        # Get colorbar range
         cmin, cmax = self.get_colorbar_range()
 
-        # Create trace name with time information if available
-        trace_name = 'DAS Signal'
-        if time_index is not None and hasattr(self.data, 'taxis'):
-            actual_time = self.data.taxis[time_index]
-            trace_name = f'DAS Signal (t={actual_time:.3f}s)'
-        elif selected_time is not None:
-            trace_name = f'DAS Signal ({selected_time})'
-
+        # Create trace
         das_trace = go.Scatter3d(
             x=x_das,
             y=y_das,
@@ -234,7 +247,7 @@ class DASPlot:
                 size=3,
                 color=signal,
                 colorscale=self.color_scale,
-                colorbar=dict(title='DAS Signal'),
+                colorbar=dict(title=f'{label} Signal'),
                 opacity=1.0,
                 cmin=cmin,
                 cmax=cmax,
@@ -242,8 +255,32 @@ class DASPlot:
             ),
             name=trace_name
         )
-
+        
         return das_trace
+
+    def create_plot(self, well_traj=None, time_index=None, depth_offset=None, selected_time=None):
+        """
+        Create DAS plot trace(s). Returns single trace or list of traces.
+        """
+        
+        # Handle multiple DAS datasets
+        if len(self.data) > 1:
+            print(f"Creating {len(self.data)} DAS traces")
+            traces = []
+            for i, data_obj in enumerate(self.data):
+                label = self.labels[i] if i < len(self.labels) else f'DAS {i+1}'
+                trace = self._create_single_trace(data_obj, label, time_index, selected_time)
+                traces.append(trace)
+            return traces
+        
+        # Handle single DAS dataset (backward compatibility)
+        elif len(self.data) == 1:
+            label = self.labels[0] if self.labels else 'DAS Signal'
+            return self._create_single_trace(self.data[0], label, time_index, selected_time)
+        
+        else:
+            print("Error: No DAS data loaded")
+            return None
 
     def find_nearest_das_time_index(self, target_time, verbose=True):
         """

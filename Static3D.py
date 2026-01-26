@@ -1,14 +1,13 @@
 # Create a static model for simpler visualization of data.
 # Author: Kailey Dougherty
 # Date created: 06-OCT-2025
-# Date last modified: 17-NOV-2025
+# Date last modified: 26-JAN-2026
 
 # Import needed libraries
 import numpy as np
 import plotly.graph_objects as go
 import dash
 from dash import html, dcc
-import pandas as pd
 
 
 class StaticDataViewer:
@@ -56,7 +55,7 @@ class StaticDataViewer:
             If False, returns only 3D figure.
             If None (default), automatically determines based on available DAS data.
         selected_time : float, optional
-            Time for red line indicator in waterfall plot and DAS 3D time slice (implies include_waterfall=True)
+            Time for red line indicator in waterfall plot (implies include_waterfall=True)
         start_time : float, optional
             Start time for waterfall window (implies include_waterfall=True)
         end_time : float, optional
@@ -78,141 +77,6 @@ class StaticDataViewer:
         self.selected_time = selected_time
         self.start_time = start_time
         self.end_time = end_time
-
-    def _find_nearest_das_time_index(self, target_time, verbose=True):
-        """
-        Find the nearest DAS time index for a given datetime string or numeric time.
-       
-        Parameters:
-        -----------
-        target_time : str, float, or int
-            Target time as datetime string or numeric seconds
-        verbose : bool
-            Whether to print matching information
-  
-        Returns:
-        --------
-        int or None
-            Nearest time index, or None if matching fails
-        """
-        if self.DASviewer is None or not hasattr(self.DASviewer, 'data'):
-            if verbose:
-                print("Warning: No DAS data available for time matching")
-            return None
-            
-        try:            
-            if isinstance(target_time, str):
-                # Handle datetime string
-                target_datetime = pd.to_datetime(target_time)
-                
-                # Check which datetime attribute exists in the data
-                if hasattr(self.DASviewer.data, 'datetime'):
-                    das_datetimes = pd.to_datetime(self.DASviewer.data.datetime)
-                elif hasattr(self.DASviewer.data, 'start_time') and hasattr(self.DASviewer.data, 'taxis'):
-                    # Convert from start_time + taxis seconds offset
-                    das_start_time = pd.to_datetime(self.DASviewer.data.start_time)
-                    time_offsets = pd.to_timedelta(self.DASviewer.data.taxis, unit='s')
-                    das_datetimes = pd.DatetimeIndex(das_start_time + time_offsets)
-                else:
-                    if verbose:
-                        available_attrs = dir(self.DASviewer.data)
-                        print("Warning: Cannot find datetime information in DAS data.")
-                        print(f"Available attributes: {available_attrs}")
-                    return None
-                
-                # Find nearest time index with validation
-                time_diffs = np.abs(das_datetimes - target_datetime)
-                time_index = np.argmin(time_diffs)
-                
-                if verbose:
-                    closest_datetime = das_datetimes[time_index]
-                    time_diff_seconds = time_diffs[time_index].total_seconds()
-                    
-                    print(f"Datetime '{target_time}' -> nearest DAS time '{closest_datetime}'")
-                    print(f"Index: {time_index}")
-                    print(f"Time difference: {time_diff_seconds:.3f} seconds")
-                    
-                    # Warn if the match is far from requested time
-                    if time_diff_seconds > 60:  # More than 1 minute difference
-                        print(f"Warning: Nearest DAS time is {time_diff_seconds:.1f}s away from requested time")
-                
-                return time_index
-                
-            elif isinstance(target_time, (int, float)):
-                # Handle numeric time (seconds offset)
-                current_das_times = self.DASviewer.data.taxis
-                time_index = np.argmin(np.abs(current_das_times - target_time))
-                
-                if verbose:
-                    actual_time = current_das_times[time_index]
-                    time_diff = abs(actual_time - target_time)
-                    print(f"Numeric time {target_time:.2f}s -> nearest DAS time {actual_time:.2f}s")
-                    print(f"Index: {time_index}")
-                    if time_diff > 1.0:  # More than 1 second difference
-                        print(f"Time difference: {time_diff:.3f} seconds")
-                
-                return time_index
-                
-            else:
-                if verbose:
-                    print(f"Warning: Unsupported time format: {type(target_time)}")
-                return None
-                
-        except Exception as e:
-            if verbose:
-                print(f"Warning: Could not match time '{target_time}': {e}")
-            return None
-
-    def get_das_time_range(self):
-        """
-        Get the available time range in the loaded DAS data.
-        
-        Returns:
-        --------
-        dict or None
-            Dictionary with 'start', 'end', 'duration_hours' keys, or None if no DAS data
-        """
-        if self.DASviewer is None or not hasattr(self.DASviewer, 'data'):
-            print("No DAS data available")
-            return None
-            
-        try:
-            import pandas as pd
-            
-            # Check which datetime attribute exists in the data
-            if hasattr(self.DASviewer.data, 'datetime'):
-                das_datetimes = pd.to_datetime(self.DASviewer.data.datetime)
-            elif hasattr(self.DASviewer.data, 'start_time') and hasattr(self.DASviewer.data, 'taxis'):
-                # Convert from start_time + taxis seconds offset
-                das_start_time = pd.to_datetime(self.DASviewer.data.start_time)
-                time_offsets = pd.to_timedelta(self.DASviewer.data.taxis, unit='s')
-                das_datetimes = pd.DatetimeIndex(das_start_time + time_offsets)
-            else:
-                print("Warning: Cannot find datetime information in DAS data for time range calculation")
-                return None
-            start_time = das_datetimes.min()
-            end_time = das_datetimes.max()
-            duration = end_time - start_time
-            
-            time_range = {
-                'start': start_time,
-                'end': end_time,
-                'duration_hours': duration.total_seconds() / 3600,
-                'total_samples': len(das_datetimes)
-            }
-            
-            print("DAS Data Time Range:")
-            print(f"  Start: {start_time}")
-            print(f"  End: {end_time}")
-            print(f"  Duration: {duration.total_seconds():.1f} seconds")
-            print(f"  ({time_range['duration_hours']:.2f} hours)")
-            print(f"  Total samples: {time_range['total_samples']:,}")
-            
-            return time_range
-            
-        except Exception as e:
-            print(f"Error getting DAS time range: {e}")
-            return None
 
     def set_title(self, title):
         """Set the title for the visualization."""
@@ -283,7 +147,7 @@ class StaticDataViewer:
                 if isinstance(self.selected_time, str):
                     # Convert datetime string to pandas datetime and find closest time
                     # Find nearest DAS time index using helper function
-                    time_index = self._find_nearest_das_time_index(self.selected_time)
+                    time_index = self.DASviewer._find_nearest_das_time_index(self.selected_time)
                     
                 elif isinstance(self.selected_time, (int, float)):
                     # Use numeric time as seconds offset (existing behavior)
@@ -301,7 +165,10 @@ class StaticDataViewer:
                         time_index=time_index
                     )
                     if das_3d_plot:
-                        self.plot_objects.append(das_3d_plot)
+                        if isinstance(das_3d_plot, list):
+                            self.plot_objects.extend(das_3d_plot)
+                        else:
+                            self.plot_objects.append(das_3d_plot)
                         if hasattr(self.DASviewer.data, 'taxis'):
                             actual_time = self.DASviewer.data.taxis[time_index]
                             print(f"Added DAS 3D plot at time index {time_index} (actual time: {actual_time:.4f}s)")
@@ -314,10 +181,16 @@ class StaticDataViewer:
                 print(f"Warning: Could not create DAS 3D plot at selected time: {e}")
                 # Fallback to original DAS object if available
                 if self.DASobj:
-                    self.plot_objects.append(self.DASobj)
+                    if isinstance(self.DASobj, list):
+                        self.plot_objects.extend(self.DASobj)
+                    else:
+                        self.plot_objects.append(self.DASobj)
         elif self.DASobj:
             # Use original DAS object if no viewer or selected time
-            self.plot_objects.append(self.DASobj)
+            if isinstance(self.DASobj, list):
+                self.plot_objects.extend(self.DASobj)
+            else:
+                self.plot_objects.append(self.DASobj)
 
         # Create the figure
         fig = go.Figure(data=self.plot_objects)

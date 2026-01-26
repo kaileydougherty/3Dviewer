@@ -93,8 +93,17 @@ class DASPlot:
         print(self.data)
         return True
 
-    def create_waterfall(self, starttime=None, endtime=None, time_index=None, selected_time=None):
+    def create_waterfall(self, das_index=0, starttime=None, endtime=None, time_index=None, selected_time=None):
         # UPDATE THIS TO USE WATERFALL PLOT FUNCTION RATHER THAN IMAGE
+
+        # Select which DAS dataset to plot
+        if len(self.data) == 0:
+            print("Error: No DAS data loaded")
+            return None
+        
+        # Get the specific data object and its label
+        data_obj = self.data[das_index] if das_index < len(self.data) else self.data[0]
+        label = self.labels[das_index] if das_index < len(self.labels) else f'DAS {das_index}'
 
         plt.figure()
 
@@ -114,24 +123,24 @@ class DASPlot:
 
         if time_index is not None:
             # Create a time slice plot instead of full waterfall
-            if hasattr(self.data, 'data') and hasattr(self.data, 'taxis'):
-                time_slice_data = self.data.data[:, time_index]  # Get data at specific time index
-                depths = self.data.daxis * 3.28084  # Convert to feet  # FIX THIS
+            if hasattr(data_obj, 'data') and hasattr(data_obj, 'taxis'):
+                time_slice_data = data_obj.data[:, time_index]  # Get data at specific time index
+                depths = data_obj.daxis * 3.28084  # Convert to feet  # FIX THIS
 
                 plt.figure(figsize=(8, 6))
                 plt.plot(time_slice_data, depths, 'b-', linewidth=1)
-                plt.title(f'DAS Time Slice at t = {self.data.taxis[time_index]:.4f}')
+                plt.title(f'DAS Time Slice at t = {data_obj.taxis[time_index]:.4f}')
                 plt.grid(True, alpha=0.3)
             else:
                 # Fallback to regular waterfall if data structure is different
-                self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True, cmap=matplotlib_cmap)
+                data_obj.plot_waterfall(downsample=self.downsample, use_timestamp=True, cmap=matplotlib_cmap)
                 # Apply consistent colorbar range for fallback waterfall
                 plt.colorbar()
                 cmin, cmax = self.get_colorbar_range()
                 plt.clim([cmin, cmax])
         else:
             # Full waterfall plot with specified colormap
-            self.data.plot_waterfall(downsample=self.downsample, use_timestamp=True, cmap=matplotlib_cmap)
+            data_obj.plot_waterfall(downsample=self.downsample, use_timestamp=True, cmap=matplotlib_cmap)
             plt.colorbar()
 
             # Apply the same colorbar range as the 3D plotting object
@@ -151,7 +160,7 @@ class DASPlot:
                     selected_datetime = pd.to_datetime(selected_time)
                 elif isinstance(selected_time, (int, float)):
                     # Convert selected time offset to actual datetime
-                    selected_datetime = self.data.start_time + timedelta(seconds=selected_time)
+                    selected_datetime = data_obj.start_time + timedelta(seconds=selected_time)
                 else:
                     print(f"Warning: Unsupported selected_time format: {type(selected_time)}")
                     selected_datetime = None

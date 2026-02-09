@@ -1,7 +1,7 @@
 # Create a static model for simpler visualization of data.
 # Author: Kailey Dougherty
 # Date created: 06-OCT-2025
-# Date last modified: 26-JAN-2026
+# Date last modified: 09-FEB-2026
 
 # Import needed libraries
 import numpy as np
@@ -195,18 +195,33 @@ class StaticDataViewer:
         # Create the figure
         fig = go.Figure(data=self.plot_objects)
 
-        # Adjust colorbar positions
+        # Adjust colorbar positions to prevent overlap
+        das_colorbar_count = 0
         for trace in fig.data:
             if hasattr(trace, 'marker') and hasattr(trace.marker, 'colorbar'):
-                if trace.name == 'DAS Signal':
-                    # Position DAS colorbar to the right of MS colorbar
+                colorbar_title = trace.marker.colorbar.title.text if hasattr(trace.marker.colorbar, 'title') else ''
+                
+                # Check if this is a DAS trace (colorbar title contains 'Signal')
+                if 'Signal' in str(colorbar_title):
+                    # Position DAS colorbars to the right, with spacing for multiple traces
+                    x_position = 1.15 + (das_colorbar_count * 0.12)  # Space each DAS colorbar 0.12 apart
                     trace.marker.colorbar.update(
-                        x=1.2,  # Positioned to the right of MS colorbar
+                        x=x_position,
                         xanchor='left',
-                        y=0.40,  # Same y position as MS colorbar
-                        yanchor='middle'
+                        y=0.5,
+                        yanchor='middle',
+                        len=0.7
                     )
-                # MS colorbar keeps default positioning (x=1.02, y=0.5)
+                    das_colorbar_count += 1
+                else:
+                    # MS colorbar
+                    trace.marker.colorbar.update(
+                        x=1.02,
+                        xanchor='left',
+                        y=0.5,
+                        yanchor='middle',
+                        len=0.7
+                    )
 
         # Prepare scene configuration
         scene_config = dict(
@@ -225,12 +240,12 @@ class StaticDataViewer:
         fig.update_layout(
             title=self.title,
             scene=scene_config,
-            width=1200,  # Increased width to accommodate colorbars
+            width=1400,  # Increased width to accommodate multiple colorbars
             height=800,
-            margin=dict(r=200),  # Add right margin for colorbars
+            margin=dict(r=250),  # Add right margin for colorbars
             legend=dict(
-                x=1.3,  # Position legend farther right to avoid colorbar overlap
-                y=0.5,
+                x=1.4,  # Position legend farther right to avoid colorbar overlap
+                y=0.95,
                 xanchor='left',
                 yanchor='top',
                 bordercolor="Black",

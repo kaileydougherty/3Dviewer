@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 26-JAN-2026
+# Date last modified: 09-FEB-2026
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -214,7 +214,7 @@ class DASPlot:
 
         # If selected_time is provided, find the corresponding time index
         if selected_time is not None and time_index is None:
-            time_index = self._find_nearest_das_time_index(selected_time, verbose=True)
+            time_index = self.find_nearest_das_time_index(selected_time, verbose=True)
             if time_index is not None:
                 print(f"Using time index {time_index} for selected time '{selected_time}'")
 

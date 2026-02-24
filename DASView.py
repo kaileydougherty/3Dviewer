@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 09-FEB-2026
+# Date last modified: 24-FEB-2026
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -75,12 +75,18 @@ class DASPlot:
     def add_data(self, data):
         self.data.append(data)
 
-    def load_h5(self, pylib, filepaths, labels=None):
+    def load_h5(self, pylib, filepaths, bgtime=None, edtime=None, labels=None):
         sys.path.append(pylib)
         from JIN_pylib import Data2D_XT
 
         for i, fpath in enumerate(filepaths):
             data_obj = Data2D_XT.load_h5(fpath)
+
+        # Apply time windowing if time range is provided
+            if bgtime is not None and edtime is not None:
+                data_obj.select_time(bgtime, edtime, makecopy=False, reset_starttime=True)
+                print(f"Windowed data {i+1} from {bgtime} to {edtime}")
+
             self.data.append(data_obj)
 
         # Store labels (use provided labels or generate default ones)
@@ -424,3 +430,4 @@ class DASPlot:
         except Exception as e:
             print(f"Error getting DAS time range: {e}")
             return None
+

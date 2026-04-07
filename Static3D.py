@@ -1,7 +1,7 @@
 # Create a static model for simpler visualization of data.
 # Author: Kailey Dougherty
 # Date created: 06-OCT-2025
-# Date last modified: 09-FEB-2026
+# Date last modified: 24-FEB-2026
 
 # Import needed libraries
 import numpy as np
@@ -28,6 +28,8 @@ class StaticDataViewer:
         Aspect ratio mode ('auto', 'cube', 'data', 'manual')
     aspect_ratio : dict, optional
         Custom aspect ratio dictionary with 'x', 'y', 'z' keys
+    camera_config : dict, optional
+        Custom camera configuration for the 3D plot (with 'eye' and 'center' keys)
     """
 
     def __init__(self, MS_obj=None, well_objs=None, DAS_obj=None, DAS_image=None,
@@ -60,6 +62,9 @@ class StaticDataViewer:
             Start time for waterfall window (implies include_waterfall=True)
         end_time : float, optional
             End time for waterfall window (implies include_waterfall=True)
+        camera_config : dict, optional
+            Custom camera configuration for the 3D plot.
+
         """
         self.MSobj = MS_obj
         self.well_objs = well_objs if well_objs is not None else []
@@ -71,6 +76,7 @@ class StaticDataViewer:
         self.plot_objects = []
         self.aspect_mode = 'data'  # Default aspect mode
         self.aspect_ratio = None   # Custom aspect ratio
+        self.camera_config = None  # Custom camera position
 
         # Waterfall plot parameters - store as provided (datetime strings or numeric)
         self.include_waterfall = include_waterfall
@@ -112,6 +118,28 @@ class StaticDataViewer:
         self.aspect_ratio = dict(x=x, y=y, z=z)
         # Automatically set to manual mode when custom ratio is provided
         self.aspect_mode = 'manual'
+
+    def set_camera_position(self, eye=None, center=None):
+        """
+        Set custom camera position for the 3D plot.
+        
+        Parameters
+        ----------
+        eye : dict, optional
+            Camera eye position with 'x', 'y', 'z' keys (relative coordinates)
+            Example: dict(x=2.5, y=0.5, z=0.3)
+        center : dict, optional
+            Camera center point with 'x', 'y', 'z' keys
+            If None and auto_center_wells=True, calculates well trajectory center
+        """
+        if eye is None:
+            # Default eye position: view from southeast, slightly above
+            eye = dict(x=1.5, y=1.5, z=0.5)
+        
+        if center is None:
+            center = dict(x=0, y=0, z=0)
+        
+        self.camera_config = dict(eye=eye, center=center)
 
     def run_dash_app(self, host="127.0.0.1", port=8050):
         """
@@ -237,7 +265,7 @@ class StaticDataViewer:
             scene_config['aspectratio'] = self.aspect_ratio
 
         # Update layout
-        fig.update_layout(
+        layout_config = dict(
             title=self.title,
             scene=scene_config,
             width=1400,  # Increased width to accommodate multiple colorbars
@@ -254,6 +282,12 @@ class StaticDataViewer:
                 font=dict(size=12)
             )
         )
+        
+        # Add camera configuration if set
+        if self.camera_config is not None:
+            layout_config['scene_camera'] = self.camera_config
+   
+        fig.update_layout(**layout_config)
 
         # Determine if we should include waterfall based on instance attributes
         should_include_waterfall = False

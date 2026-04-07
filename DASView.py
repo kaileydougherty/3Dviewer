@@ -1,7 +1,7 @@
 # Create DAS data object for plotting in 3DViewer.
 # Author: Kailey Dougherty
 # Date created: 20-JUL-2025
-# Date last modified: 24-FEB-2026
+# Date last modified: 07-APR-2026
 
 # Import needed libraries
 import matplotlib.pyplot as plt
@@ -245,7 +245,16 @@ class DASPlot:
         # Ensure signal length matches coordinates
         if len(signal) != len(x_das):
             if time_index is not None:
-                signal = signal[:len(x_das)]
+                npts = len(signal)
+                if npts < len(x_das):
+                    # Note: select_depth trimmed the shallow end of data but not the coordinates.
+                    # The filtered signal corresponds to the deep portion of the fiber,
+                    # so align coordinates to the same deep end.
+                    x_das = x_das[-npts:]
+                    y_das = y_das[-npts:]
+                    z_das = z_das[-npts:]
+                else:
+                    signal = signal[:len(x_das)]
             else:
                 signal = np.tile(signal, len(x_das) // len(signal) + 1)[:len(x_das)]
         
@@ -297,7 +306,7 @@ class DASPlot:
             print("Error: No DAS data loaded")
             return None
 
-    def find_nearest_das_time_index(self, target_time, verbose=True):
+    def find_nearest_das_time_index(self, target_time, data_obj=None, verbose=True):
         """
         Find the nearest DAS time index for a given datetime string or numeric time.
        
@@ -313,10 +322,12 @@ class DASPlot:
         int or None
             Nearest time index, or None if matching fails
         """
-        if self.data is None:
-            if verbose:
-                print("Warning: No DAS data available for time matching")
-            return None
+        if data_obj is None:
+            if self.data is None:
+                if verbose:
+                    print("Warning: No DAS data available for time matching")
+                return None
+            data_obj = self.data[0]
             
         try:            
             if isinstance(target_time, str):
@@ -324,16 +335,16 @@ class DASPlot:
                 target_datetime = pd.to_datetime(target_time)
                 
                 # Check which datetime attribute exists in the data
-                if hasattr(self.data, 'datetime'):
-                    das_datetimes = pd.to_datetime(self.data.datetime)
-                elif hasattr(self.data, 'start_time') and hasattr(self.data, 'taxis'):
+                if hasattr(data_obj, 'datetime'):
+                    das_datetimes = pd.to_datetime(data_obj.datetime)
+                elif hasattr(data_obj, 'start_time') and hasattr(data_obj, 'taxis'):
                     # Convert from start_time + taxis seconds offset
-                    das_start_time = pd.to_datetime(self.data.start_time)
-                    time_offsets = pd.to_timedelta(self.data.taxis, unit='s')
+                    das_start_time = pd.to_datetime(data_obj.start_time)
+                    time_offsets = pd.to_timedelta(data_obj.taxis, unit='s')
                     das_datetimes = pd.DatetimeIndex(das_start_time + time_offsets)
                 else:
                     if verbose:
-                        available_attrs = dir(self.data)
+                        available_attrs = dir(data_obj)
                         print("Warning: Cannot find datetime information in DAS data.")
                         print(f"Available attributes: {available_attrs}")
                     return None
